@@ -416,7 +416,7 @@ Replace `lua51` with the library name matching your Lua version.
 | `LUA_LIBDIR` | (empty on Unix)             | Path to the Lua library directory       |
 | `LUA_LIB`    | `lua54` (Windows only)      | Lua library name to link (e.g. `lua51`) |
 
-The Makefile builds the module into `c/chrono/` automatically; `cli.lua`
+The Makefile builds the module into `c/chrono/` automatically; `bin/chrono`
 sets `package.cpath` to find it there.
 
 ### Using with LuaRocks

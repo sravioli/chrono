@@ -48,7 +48,7 @@ jobs:
         run: luarocks install luacheck
 
       - name: Run luacheck
-        run: luacheck lua/ cli.lua verify.lua bench/
+        run: luacheck lua/ bin/ verify.lua bench/
 
   selene:
     name: Selene
@@ -64,4 +64,4 @@ jobs:
           args: --version
 
       - name: Run selene
-        run: selene --display-style=quiet lua/ cli.lua verify.lua bench/
+        run: selene --display-style=quiet lua/ bin/ verify.lua bench/

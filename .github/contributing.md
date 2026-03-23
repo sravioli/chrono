@@ -87,8 +87,8 @@ Before contributing, ensure you have the following:
 5. Run linters:
 
    ```sh
-   luacheck lua/ cli.lua verify.lua bench/
-   selene --display-style=quiet lua/ cli.lua verify.lua bench/
+   luacheck lua/ bin/ verify.lua bench/
+   selene --display-style=quiet lua/ bin/ verify.lua bench/
    ```
 
 6. Run the test suite:
@@ -138,8 +138,8 @@ make clean
 
   ```sh
   stylua --check .     # or `stylua .` to auto-fix
-  luacheck lua/ cli.lua verify.lua bench/
-  selene --display-style=quiet lua/ cli.lua verify.lua bench/
+  luacheck lua/ bin/ verify.lua bench/
+  selene --display-style=quiet lua/ bin/ verify.lua bench/
   ```
 
 - **Run the test suite.** Tests use [Busted](https://lunarmodules.github.io/busted/).
