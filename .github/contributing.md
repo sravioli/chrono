@@ -101,7 +101,7 @@ Before contributing, ensure you have the following:
 
 ```sh
 # Build the native timer
-make clock
+make build
 
 # Run all tests
 make test

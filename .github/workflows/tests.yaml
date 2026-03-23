@@ -45,7 +45,7 @@ jobs:
           luarocks install luacov-coveralls
 
       - name: Build native timer
-        run: make clock
+        run: make build
 
       - name: Run tests
         run: busted --verbose --coverage

@@ -354,7 +354,7 @@ LuaRocks for auto-detection. The included Makefile detects Lua headers via:
 3. Standard system paths (`/usr/include`, `/usr/local/include`)
 
 ```sh
-make clock
+make build
 # — or manually with explicit paths —
 cc -O2 -shared -fPIC -I/usr/include/lua5.1 -o c/chrono/clock.so c/clock.c -lrt
 ```
@@ -371,13 +371,13 @@ first. After installing a compiler, build with explicit include/library paths:
 2. Either add that folder to your `PATH`, or pass it directly to `make`:
 
    ```sh
-   make clock CC="zig cc"
+   make build CC="zig cc"
    ```
 
    If Lua headers are not auto-detected, specify them explicitly:
 
    ```sh
-   make clock CC="zig cc" LUA_INCDIR=C:/path/to/lua/include LUA_LIB=lua51
+   make build CC="zig cc" LUA_INCDIR=C:/path/to/lua/include LUA_LIB=lua51
    ```
 
 #### Option B — MSYS2 / MinGW-w64
@@ -392,7 +392,7 @@ first. After installing a compiler, build with explicit include/library paths:
 3. Build from the MSYS2 shell:
 
    ```sh
-   make clock LUA_INCDIR=/path/to/lua/include LUA_LIB=lua51
+   make build LUA_INCDIR=/path/to/lua/include LUA_LIB=lua51
    ```
 
 #### Option C — MSVC (Developer Command Prompt)
