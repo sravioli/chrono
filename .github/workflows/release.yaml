@@ -13,6 +13,8 @@ jobs:
   release:
     name: Create a GitHub release
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.tag.outputs.version }}
 
     steps:
       - name: Checkout main
@@ -27,9 +29,11 @@ jobs:
           git config --global user.name github-actions;
 
       - name: Fetch latest tag
-        run: >-
-          echo "LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)"
-          >> "$GITHUB_ENV"
+        id: tag
+        run: |
+          tag="$(git describe --tags "$(git rev-list --tags --max-count=1)")"
+          echo "LATEST_TAG=$tag" >> "$GITHUB_ENV"
+          echo "version=$tag" >> "$GITHUB_OUTPUT"
 
       - name: SemVer release
         uses: cocogitto/cocogitto-action@v3.5
@@ -56,6 +60,8 @@ jobs:
     with:
       rockspecs: >-
         ["chrono-scm-1.rockspec",
-         "chrono-clock-scm-1.rockspec"]
+         "chrono-clock-scm-1.rockspec",
+         "rockspecs/chrono-${{ needs.release.outputs.version }}-1.rockspec",
+         "rockspecs/chrono-clock-${{ needs.release.outputs.version }}-1.rockspec"]
     secrets:
       apikey: ${{ secrets.LUAROCKS_API_KEY }}
