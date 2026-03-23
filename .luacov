@@ -1,0 +1,15 @@
+--- luacov configuration
+--- Only track project source files, not installed dependencies.
+
+return {
+  include = {
+    "lua/chrono/.+",
+    "cli",
+    "verify",
+  },
+  exclude = {
+    "spec/",
+    "bench/",
+    "%.luarocks/",
+  },
+}
