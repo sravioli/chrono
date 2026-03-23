@@ -63,6 +63,7 @@ jobs:
           COVERALLS_REPO_TOKEN: ${{ github.token }}
 
       - name: Upload coverage report
+        if: matrix.lua == '5.1'
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
