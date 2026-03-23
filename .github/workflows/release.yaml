@@ -48,3 +48,14 @@ jobs:
         with:
           body_path: GITHUB_CHANGELOG.md
           tag_name: ${{ env.LATEST_TAG }}
+
+  upload-luarocks:
+    name: Upload rocks to LuaRocks
+    needs: release
+    uses: ./.github/workflows/upload_luarocks.yaml
+    with:
+      rockspecs: >-
+        ["chrono-scm-1.rockspec",
+         "chrono-clock-scm-1.rockspec"]
+    secrets:
+      apikey: ${{ secrets.LUAROCKS_API_KEY }}

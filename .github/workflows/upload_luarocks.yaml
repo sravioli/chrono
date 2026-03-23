@@ -1,0 +1,97 @@
+---
+name: Upload to LuaRocks
+
+on:
+  workflow_call:
+    inputs:
+      rockspecs:
+        required: true
+        type: string
+    secrets:
+      apikey:
+        required: true
+
+jobs:
+  upload:
+    name: Upload to LuaRocks (${{ matrix.rockspec }})
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        rockspec: ${{ fromJSON(inputs.rockspecs) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup lua
+        uses: leafo/gh-actions-lua@v12
+
+      - name: Setup luarocks
+        uses: leafo/gh-actions-luarocks@v6
+        with:
+          luarocksVersion: "3.12.2"
+
+      - name: Setup dependencies
+        run: |
+          luarocks install dkjson
+
+      - name: Detect release mode and matching tag
+        id: meta
+        shell: bash
+        run: |
+          spec="${{ matrix.rockspec }}"
+          filename="$(basename "$spec")"
+
+          # Determine dev vs release by directory.
+          if [[ "$spec" == rockspecs/* ]]; then
+            echo "mode=release" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=dev" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Extract version: strip package prefix and -<revision>.rockspec suffix.
+          # Handles names with dashes, e.g. chrono-clock-1.2.0-1.rockspec → 1.2.0
+          version=$(echo "$filename" | sed -E 's/^.*-([0-9]+\.[0-9]+\.[0-9]+)-[0-9]+\.rockspec$/\1/')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          # Check for a matching git tag (v1.2.0 or 1.2.0).
+          tag=$(git tag | grep -Ex "v?${version//\./\\.}" || true)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      # ── Dev path: force-upload rockspec, skip packing src.rock ──
+      - name: Upload dev rockspec
+        if: steps.meta.outputs.mode == 'dev'
+        run: |
+          luarocks upload \
+            --temp-key "${{ secrets.apikey }}" \
+            --force --skip-pack \
+            -- "${{ matrix.rockspec }}"
+
+      # ── Release path: upload rockspec + build and upload src.rock ──
+      - name: Upload release rockspec
+        if: steps.meta.outputs.mode == 'release' && steps.meta.outputs.tag
+        run: |
+          luarocks upload \
+            --temp-key "${{ secrets.apikey }}" \
+            -- "${{ matrix.rockspec }}"
+
+      - name: Build src.rock
+        if: steps.meta.outputs.mode == 'release' && steps.meta.outputs.tag
+        run: |
+          luarocks pack "${{ matrix.rockspec }}"
+          echo "--- built artifacts ---"
+          ls -l *.src.rock 2>/dev/null || true
+
+      - name: Upload src.rock
+        if: steps.meta.outputs.mode == 'release' && steps.meta.outputs.tag
+        run: |
+          src_rock=$(ls *.src.rock 2>/dev/null | head -1)
+          if [ -z "$src_rock" ]; then
+            echo "::error::No .src.rock was produced for ${{ matrix.rockspec }}"
+            exit 1
+          fi
+          luarocks upload \
+            --temp-key "${{ secrets.apikey }}" \
+            -- "$src_rock"
