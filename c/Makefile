@@ -24,10 +24,27 @@ ifeq ($(UNAME),Windows)
   LUA_INCDIR ?= $(shell luarocks config variables.LUA_INCDIR 2>NUL)
   LUA_LIBDIR ?= $(shell luarocks config variables.LUA_LIBDIR 2>NUL)/../lib
 else
-  LUA_INCDIR ?= $(shell pkg-config --variable=includedir lua5.1 2>/dev/null || \
-                 pkg-config --variable=includedir lua51  2>/dev/null || \
-                 pkg-config --variable=includedir luajit  2>/dev/null || \
-                 echo /usr/include/lua5.1)
+  LUA_INCDIR ?= $(shell \
+    inc="$$(luarocks config variables.LUA_INCDIR 2>/dev/null)"; \
+    if [ -z "$$inc" ]; then \
+      inc="$$(pkg-config --cflags-only-I lua5.1 2>/dev/null | awk '{print $$1}' | sed 's/^-I//')"; \
+    fi; \
+    if [ -z "$$inc" ]; then \
+      inc="$$(pkg-config --cflags-only-I lua51 2>/dev/null | awk '{print $$1}' | sed 's/^-I//')"; \
+    fi; \
+    if [ -z "$$inc" ]; then \
+      inc="$$(pkg-config --cflags-only-I luajit 2>/dev/null | awk '{print $$1}' | sed 's/^-I//')"; \
+    fi; \
+    if [ -z "$$inc" ] && [ -d /usr/include/lua5.1 ]; then \
+      inc=/usr/include/lua5.1; \
+    fi; \
+    if [ -z "$$inc" ] && [ -d /usr/include/luajit-2.1 ]; then \
+      inc=/usr/include/luajit-2.1; \
+    fi; \
+    if [ -z "$$inc" ]; then \
+      inc=/usr/include; \
+    fi; \
+    echo $$inc)
   LUA_LIBDIR ?=
 endif
 
