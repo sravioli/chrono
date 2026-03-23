@@ -2,6 +2,14 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [0.1.1](https://github.com/sravioli/chrono/compare/d213e1c5a49f5403b61c883452c3eaa094f542e4..0.1.1) - 2026-03-23
+#### Features
+- (**cocogitto**) add pre-bump script - ([d213e1c](https://github.com/sravioli/chrono/commit/d213e1c5a49f5403b61c883452c3eaa094f542e4)) - sravioli
+#### Style
+- formatting - ([13be682](https://github.com/sravioli/chrono/commit/13be68263748652a32a354e3c2467a7b5c2c5f14)) - sravioli
+
+- - -
+
 ## [0.1.0](https://github.com/sravioli/chrono/compare/65eb6c28a190f522d16139221e5c7edc2d861c91..0.1.0) - 2026-03-23
 #### Features
 - (**cocogitto**) add configuration file - ([23bd01a](https://github.com/sravioli/chrono/commit/23bd01af548f75f1ecad168c5ffedf1e8fb8a26d)) - sravioli
