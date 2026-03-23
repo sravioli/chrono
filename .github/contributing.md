@@ -51,8 +51,15 @@ Before contributing, ensure you have the following:
 - [Git](https://git-scm.com/) installed
 - [Lua 5.1+](https://www.lua.org/) or [LuaJIT 2.x](https://luajit.org/)
   installed
+- A C compiler (`cc`) — optional, for the native high-resolution timer
+- [GNU Make](https://www.gnu.org/software/make/) — for building the C module
+  and running common tasks
 - [StyLua](https://github.com/JohnnyMorganz/StyLua) installed (for code
   formatting)
+- [Luacheck](https://github.com/mpeterv/luacheck) installed (for static
+  analysis)
+- [Selene](https://kampfkarren.github.io/selene/) installed (for additional
+  static analysis with custom Lua 5.1 + LuaJIT standard library)
 - [Busted](https://lunarmodules.github.io/busted/) installed (for running tests)
 
 ## Environment setup
@@ -77,11 +84,40 @@ Before contributing, ensure you have the following:
    stylua --check .
    ```
 
-5. Run the test suite:
+5. Run linters:
+
+   ```sh
+   luacheck lua/ cli.lua verify.lua bench/
+   selene --display-style=quiet lua/ cli.lua verify.lua bench/
+   ```
+
+6. Run the test suite:
 
    ```sh
    busted
    ```
+
+## Common tasks
+
+```sh
+# Build the native timer
+make clock
+
+# Run all tests
+make test
+
+# Verify timer auto-detection
+make verify
+
+# Run specific linter
+luacheck lua/chrono/
+
+# Auto-format code
+stylua .
+
+# Clean build artifacts
+make clean
+```
 
 ## Best practices
 
@@ -95,9 +131,22 @@ Before contributing, ensure you have the following:
 - **Annotate types.** LuaLS type annotations live inline in the source files
   under `lua/chrono/`. Update or add `---@class`, `---@field`, `---@param`, and
   `---@return` annotations when changing public APIs.
+- **Pass all linters.** The project enforces a zero-warning policy with both
+  [Luacheck](https://github.com/mpeterv/luacheck) and
+  [Selene](https://kampfkarren.github.io/selene/) (using a custom
+  `chrono_std.yml` standard library). Run both locally before submitting:
+
+  ```sh
+  stylua --check .     # or `stylua .` to auto-fix
+  luacheck lua/ cli.lua verify.lua bench/
+  selene --display-style=quiet lua/ cli.lua verify.lua bench/
+  ```
+
 - **Run the test suite.** Tests use [Busted](https://lunarmodules.github.io/busted/).
   Run `busted --verbose` before submitting changes. Add or update tests in
   `spec/` when modifying public behaviour.
+- **Module organization.** Each top-level feature is a separate `.lua` file in
+  `lua/chrono/`.
 
 ## Contribution workflow
 
@@ -171,6 +220,53 @@ Releases are automated. When a maintainer bumps the version with `cog bump`,
 Cocogitto creates a SemVer tag and pushes it. A GitHub Actions workflow then
 generates a changelog and publishes a GitHub release. Contributors do not need
 to manage releases.
+
+### Releasing to LuaRocks
+
+The project publishes two packages to [LuaRocks](https://luarocks.org):
+
+| Package        | Rockspec (dev)                | Rockspec (stable)                         |
+| -------------- | ----------------------------- | ----------------------------------------- |
+| `chrono`       | `chrono-scm-1.rockspec`       | `rockspecs/chrono-X.Y.Z-1.rockspec`       |
+| `chrono-clock` | `chrono-clock-scm-1.rockspec` | `rockspecs/chrono-clock-X.Y.Z-1.rockspec` |
+
+#### Dev uploads
+
+Dev (`scm`) rockspecs live at the repository root. They are uploaded
+automatically on every tagged push with `--force --skip-pack` (no `.src.rock`
+artifact). This keeps the development channel always up-to-date.
+
+#### Stable releases
+
+Versioned rockspecs live in `rockspecs/`. When a tag matching the rockspec
+version exists (e.g. tag `v1.0.0` matches `chrono-1.0.0-1.rockspec`), the
+workflow:
+
+1. Uploads the rockspec to LuaRocks.
+2. Builds a `.src.rock` archive.
+3. Uploads the `.src.rock` alongside the rockspec.
+
+#### Release checklist
+
+1. Create a versioned rockspec in `rockspecs/`:
+   ```sh
+   cp chrono-scm-1.rockspec rockspecs/chrono-1.0.0-1.rockspec
+   ```
+2. Edit the copy: set `version = "1.0.0-1"` and update `source.tag`.
+3. Repeat for `chrono-clock` if the native timer changed.
+4. Add the new paths to the `rockspecs` input in `.github/workflows/release.yaml`.
+5. Commit, tag, and push:
+   ```sh
+   git tag v1.0.0
+   git push --tags
+   ```
+6. The release workflow creates a GitHub release and then publishes both dev
+   and stable rocks to LuaRocks in parallel.
+
+#### Required secret
+
+Add a repository secret named `LUAROCKS_API_KEY` containing your LuaRocks API
+key. The workflow uses `--temp-key` to avoid persisting credentials.
 
 ### Text formats
 
