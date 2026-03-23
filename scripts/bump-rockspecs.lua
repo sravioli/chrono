@@ -6,7 +6,7 @@
 
 local version = arg and arg[1]
 if not version then
-  io.stderr:write("Usage: lua scripts/bump-rockspecs.lua <version>\n")
+  io.stderr:write "Usage: lua scripts/bump-rockspecs.lua <version>\n"
   os.exit(1)
 end
 
@@ -22,7 +22,7 @@ end
 
 local function readfile(path)
   local f = assert(io.open(path, "r"))
-  local content = f:read("*a")
+  local content = f:read "*a"
   f:close()
   return content
 end
@@ -34,7 +34,7 @@ local function writefile(path, content)
 end
 
 local scm_specs = {}
-for _, name in ipairs({ "chrono-scm-1.rockspec", "chrono-clock-scm-1.rockspec" }) do
+for _, name in ipairs { "chrono-scm-1.rockspec", "chrono-clock-scm-1.rockspec" } do
   local f = io.open(name, "r")
   if f then
     f:close()
@@ -43,14 +43,14 @@ for _, name in ipairs({ "chrono-scm-1.rockspec", "chrono-clock-scm-1.rockspec" }
 end
 
 if #scm_specs == 0 then
-  io.stderr:write("No scm rockspecs found in working directory\n")
+  io.stderr:write "No scm rockspecs found in working directory\n"
   os.exit(1)
 end
 
-mkdir("rockspecs")
+mkdir "rockspecs"
 
 for _, scm in ipairs(scm_specs) do
-  local pkg = scm:match("^(.+)-scm%-1%.rockspec$")
+  local pkg = scm:match "^(.+)-scm%-1%.rockspec$"
   local dest = "rockspecs" .. sep .. pkg .. "-" .. version .. "-1.rockspec"
 
   local content = readfile(scm)
