@@ -18,6 +18,7 @@ suite:add("table.insert", function()
   for i = 1, 200 do
     table.insert(t, i)
   end
+  local _ = t[200]
 end)
 
 suite:add("rawset", function()
@@ -25,6 +26,7 @@ suite:add("rawset", function()
   for i = 1, 200 do
     rawset(t, i, i)
   end
+  local _ = t[200]
 end)
 
 return suite
