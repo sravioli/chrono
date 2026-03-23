@@ -95,9 +95,16 @@ luarocks install chrono
 
 # Optional: native high-resolution timer (requires a C compiler)
 luarocks install chrono-clock
+
+# Windows with Zig: explicitly set compiler and linker
+luarocks install chrono-clock CC="zig cc" LD="zig cc"
+
+# Windows with MSYS2/MinGW: from the MSYS2 shell
+# luarocks install chrono-clock
 ```
 
-After installation the `chrono` command is available system-wide (like `busted`).
+After installation, the `chrono` command is available system-wide (installed
+into your LuaRocks bin directory, typically in your `PATH`).
 
 ## Configuration (`.chrono`)
 
@@ -129,6 +136,26 @@ return {
 
 All other suite options (`min_time`, `batch_size`, `gc_off`, `gc_collect`,
 `randomize`, `out_of_process`) are also supported.
+
+### Streaming Output
+
+For `text` and `pretty` output formats, chrono streams each benchmark result
+as it completes. This provides live feedback for long benchmark runs.
+
+- **Default:** Streaming enabled (`defer_print = false`)
+- **To buffer output:** Use `--defer-print` on CLI or `defer_print = true` in `.chrono`
+- **JSON output:** Always deferred (buffered per-file) to maintain valid JSON documents
+
+**Example:** Live streaming shows results as benchmarks finish:
+```
+suite_name: Benchmarks
+↓
+[Benchmark 1] ✓ 156.234 ± 8.245 ops/sec
+[Benchmark 2] ✓ 45.623 ± 2.134 ops/sec
+[Benchmark 3] ✓ 923.456 ± 45.234 ops/sec
+↓
+completed in 12.456 seconds
+```
 
 CLI flags override `.chrono` values. Each benchmark file must `return` a
 suite object.
@@ -244,38 +271,33 @@ Suite results wrap individual results:
 
 ## CLI flags
 
-| Flag               | Description                            | Default  |
-| ------------------ | -------------------------------------- | -------- |
-| `--lua <interp>`   | Re-run under a different interpreter   | –        |
-| `--file <path>`    | Benchmark file to run (repeatable)     | –        |
-| `--root <dir>`     | Root directory for discovery (repeat.) | `bench/` |
-| `--pattern <pat>`  | Lua filename pattern for discovery     | `_bench` |
-| `--format <fmt>`   | `text`, `pretty`, or `json`            | `text`   |
-| `--defer-print`    | Buffer `text`/`pretty` output per file | off      |
-| `--no-defer-print` | Stream `text`/`pretty` output live     | on       |
-| `--timer <src>`    | `wall` or `cpu`                        | `wall`   |
-| `--iterations N`   | Measurement iterations                 | 100      |
-| `--warmup N`       | Warmup iterations                      | 0        |
-| `--min-time S`     | Minimum measurement seconds            | 0        |
-| `--batch-size N`   | Calls per timed iteration              | 1        |
-| `--gc-off`         | Disable GC during measurement          | –        |
-| `--gc-collect`     | Force GC between suite benchmarks      | –        |
-| `--randomize`      | Randomize benchmark execution order    | –        |
-| `--out-of-process` | Run each benchmark in a child process  | –        |
-| `--help`           | Print usage                            | –        |
+| Flag               | Description                                      | Default |
+| ------------------ | ------------------------------------------------ | ------- |
+| `--lua <interp>`   | Re-run under a different interpreter             | –       |
+| `--file <path>`    | Benchmark file to run (repeatable)               | –       |
+| `--root <dir>`     | Root directory for discovery (repeatable)        | `bench/`|
+| `--pattern <pat>`  | Lua filename pattern for discovery               | `_bench`|
+| `--format <fmt>`   | Output format: `text`, `pretty`, or `json`       | `text`  |
+| `--defer-print`    | Buffer `text`/`pretty` output per suite          | off     |
+| `--no-defer-print` | Stream `text`/`pretty` output live _(default)_   | on      |
+| `--timer <src>`    | `wall` or `cpu`                                  | `wall`  |
+| `--iterations N`   | Measurement iterations per benchmark             | 100     |
+| `--warmup N`       | Warmup iterations before measurement             | 0       |
+| `--min-time S`     | Minimum measurement seconds                      | 0       |
+| `--batch-size N`   | Calls per timed iteration (for fast functions)   | 1       |
+| `--gc-off`         | Disable garbage collection during measurement    | –       |
+| `--gc-collect`     | Force garbage collection between benchmarks      | –       |
+| `--randomize`      | Randomize benchmark execution order              | –       |
+| `--out-of-process` | Run each benchmark in a child process             | –       |
+| `--help`           | Print usage information and exit                 | –       |
 
 **Switching runtimes:** `chrono --lua luajit` re-executes the entire CLI
 under LuaJIT (or any other interpreter). This lets you compare Lua vs
 LuaJIT results without separate installs.
 
-**Streaming output:** when `--format` is `text` or `pretty`, chrono prints the
-suite header once, emits each benchmark result as it finishes, and then prints
-the suite summary. Use `--defer-print` when you want the old buffered behavior.
-
-When no `--file` arguments are given, chrono auto-discovers benchmark files
-by recursively searching `--root` directories for `.lua` files matching
-`--pattern` (default: `bench/*_bench.lua`). Each file must `return` a
-suite object.
+**Auto-discovery:** When no `--file` arguments are given, chrono recursively
+searches `--root` directories for `.lua` files matching `--pattern`
+(default: `bench/*_bench.lua`). Each file must `return` a suite object.
 
 ## Timer sources
 
@@ -317,48 +339,52 @@ it, just at lower timer resolution.
 #### Linux / macOS
 
 Requires Lua headers (`lua5.1-dev`, `lua5.4-dev`, etc.) and `pkg-config` or
-LuaRocks for auto-detection:
+LuaRocks for auto-detection. The included Makefile detects Lua headers via:
+
+1. LuaRocks introspection (when available)
+2. `pkg-config` (if installed)
+3. Standard system paths (`/usr/include`, `/usr/local/include`)
 
 ```sh
-make
-# — or manually —
+make clock
+# — or manually with explicit paths —
 cc -O2 -shared -fPIC -I/usr/include/lua5.1 -o c/chrono/clock.so c/clock.c -lrt
 ```
 
 #### Windows
 
 Windows does not ship with a C compiler or `make`, so you need to install them
-first. Pick **one** of the options below.
+first. After installing a compiler, build with explicit include/library paths:
 
 ##### Option A — Zig (recommended, single download, no PATH pain)
 
 1. Download the latest **zig** archive from <https://ziglang.org/download/> and
-   extract it somewhere (e.g. `C:\zig`).
-2. Add that folder to your `PATH`, or pass it directly to `make`:
+   extract it to a convenient location (e.g. `C:\zig`).
+2. Either add that folder to your `PATH`, or pass it directly to `make`:
 
    ```sh
-   make -C c CC="zig cc"
+  make clock CC="zig cc"
    ```
 
-   If your Lua headers are not found automatically, point the Makefile at them:
+   If Lua headers are not auto-detected, specify them explicitly:
 
    ```sh
-   make -C c CC="zig cc" LUA_INCDIR=C:/path/to/lua/include LUA_LIB=lua51
+  make clock CC="zig cc" LUA_INCDIR=C:/path/to/lua/include LUA_LIB=lua51
    ```
 
 ##### Option B — MSYS2 / MinGW-w64
 
 1. Install [MSYS2](https://www.msys2.org/).
-2. From the **MSYS2 UCRT64** shell, install the toolchain and `make`:
+2. From the **MSYS2 UCRT64** shell, install toolchain and make:
 
    ```sh
    pacman -S mingw-w64-ucrt-x86_64-gcc make
    ```
 
-3. Run the build (from the MSYS2 shell):
+3. Build from the MSYS2 shell:
 
    ```sh
-   make -C c LUA_INCDIR=/path/to/lua/include LUA_LIB=lua51
+  make clock LUA_INCDIR=/path/to/lua/include LUA_LIB=lua51
    ```
 
 ##### Option C — MSVC (Developer Command Prompt)
@@ -384,6 +410,18 @@ Replace `lua51` with the library name matching your Lua version.
 The Makefile builds the module into `c/chrono/` automatically; the `.busted`
 config and `cli.lua` both set `package.cpath` to find it there.
 
+#### Using with LuaRocks
+
+When installing `chrono-clock` via LuaRocks on Windows, explicitly provide your
+compiler and linker:
+
+```sh
+luarocks install chrono-clock CC="zig cc" LD="zig cc"
+```
+
+This ensures LuaRocks uses your chosen compiler (not the system default) and
+links correctly with your Lua installation.
+
 ## Reproducibility tips
 
 - Pin CPU frequency / disable turbo boost for stable results.
@@ -394,38 +432,53 @@ config and `cli.lua` both set `package.cpath` to find it there.
   noise.
 - Run benchmarks multiple times and compare across runs.
 
+## Planned Features
+
+See [docs/spinner-design.md](docs/spinner-design.md) for the design of a future
+progress indicator UI. This feature provides live feedback for very long
+benchmark runs without perturbing measurement accuracy.
+
 ## Project structure
 
 ```
 chrono/
 ├── bin/chrono                    Executable installed by LuaRocks
-├── cli.lua                       Legacy CLI entry point (standalone)
+├── cli.lua                       Standalone CLI entry point
 ├── verify.lua                    Timer detection sanity check
 ├── Makefile                      Top-level targets (delegates to c/)
-├── .chrono                       Default config (like .busted)
 ├── .busted                       Test runner config
+├── .chrono                       Default CLI config (like .busted)
 ├── .gitignore                    Git exclusions (build artifacts)
 ├── .stylua.toml                  StyLua formatter config
+├── selene.toml                   Selene linter config
+├── chrono_std.yml                Custom Selene std library (Lua 5.1 + LuaJIT globals)
 ├── chrono-scm-1.rockspec         LuaRocks package (library + CLI)
 ├── chrono-clock-scm-1.rockspec   LuaRocks package (optional C timer)
+├── .github/
+│   ├── workflows/
+│   │   ├── tests.yaml            Test matrix (Lua 5.1 + LuaJIT)
+│   │   ├── lint.yaml             Luacheck + Selene + StyLua checks
+│   │   └── release.yaml          Release automation
+│   └── readme.md                 Repository documentation
 ├── c/
 │   ├── Makefile                  Builds chrono.clock C module
-│   └── clock.c                   Native high-resolution timer
+│   ├── clock.c                   Native high-resolution timer
+│   └── chrono/                   Compiled module output directory
 ├── lua/chrono/
 │   ├── init.lua                  Main module & suite API
 │   ├── cli.lua                   CLI engine (config, discovery, runner)
 │   ├── runner.lua                Benchmark execution engine
-│   ├── statistics.lua            Statistical computations
+│   ├── statistics.lua            Statistical computations & formatting
 │   ├── timer.lua                 Timer abstraction (auto-detects best source)
 │   ├── subprocess.lua            Out-of-process execution via io.popen
-│   ├── devnull.lua               No-op write sink
+│   ├── devnull.lua               No-op output sink
 │   ├── jitstats.lua              LuaJIT trace statistics collector
 │   ├── jitutil.lua               JIT pre-compilation verification
 │   └── reporters/
-│       ├── text.lua              Plain-text reporter
-│       ├── pretty.lua            ANSI-colored UTF-8 box-drawing reporter
-│       └── json.lua              Machine-readable JSON reporter
-├── bench/                        Benchmark files (auto-discovered by CLI)
+│       ├── text.lua              Plain-text reporter with streaming support
+│       ├── pretty.lua            ANSI-colored UTF-8 box-drawing reporter with streaming
+│       └── json.lua              Machine-readable JSON reporter (deferred output)
+├── bench/                        (Auto-discovered by CLI)
 │   ├── reporter_bench.lua        Reporter formatting benchmarks
 │   ├── runner_bench.lua          Runner overhead benchmarks
 │   ├── statistics_bench.lua      Statistics computation benchmarks
@@ -433,9 +486,13 @@ chrono/
 │   ├── suite_bench.lua           Suite API benchmarks
 │   ├── table_bench.lua           Table operation benchmarks
 │   └── timer_bench.lua           Timer call overhead benchmarks
-└── spec/
-    ├── smoke_spec.lua            End-to-end API tests
-    └── stats_spec.lua            Statistics correctness tests
+├── spec/
+│   ├── smoke_spec.lua            End-to-end API tests
+│   └── stats_spec.lua            Statistics correctness tests
+├── docs/
+│   └── spinner-design.md         Future progress UI design (deferred feature)
+├── LICENSE                       GNU General Public License v2
+└── LICENSE-DOCS                  Creative Commons Attribution-NonCommercial 4.0
 ```
 
 ## Running the tests
@@ -447,14 +504,81 @@ is included in the repository root.
 busted
 ```
 
+The project also enforces code quality checks:
+
+- **StyLua** — Code formatting (automatic style enforcement)
+- **Luacheck** — Static analysis for common errors and style violations
+- **Selene** — Static analyzer with custom Lua 5.1 + LuaJIT standard library
+  (`chrono_std.yml`) to properly recognize jit, package.config, and other globals
+
+All checks are run in CI on every push and pull request. To run locally:
+
+```sh
+stylua --check .     # or `stylua .` to auto-fix
+luacheck lua/ cli.lua verify.lua bench/
+selene --display-style=quiet lua/ cli.lua verify.lua bench/
+```
+
+## Development
+
+### Required tools
+
+- Lua 5.1+ or LuaJIT 2.0+ (for running)
+- cc (any C compiler for optional native timer)
+- GNU Make (for building the C module)
+- Busted (for tests): `luarocks install busted`
+
+### Common tasks
+
+```sh
+# Build the native timer
+make clock
+
+# Run all tests
+make test
+
+# Verify timer auto-detection
+make verify
+
+# Run specific linter
+luacheck lua/chrono/
+
+# Auto-format code
+stylua .
+
+# Clean build artifacts
+make clean
+```
+
+### Project conventions
+
+- **Code style:** StyLua 2-space indentation, Unix line endings
+- **Linting:** Luacheck + Selene with zero-warning policy
+- **Testing:** Busted with 100% pass rate required
+- **Module organization:** Each top-level feature is a separate .lua file in
+  `lua/chrono/`
+
 ## Compatibility
 
-- Lua 5.1.x, 5.2+, 5.4+ (syntax is 5.1-compatible)
-- LuaJIT 2.0.5+
-- No external Lua dependencies
-- Optional: `chrono.clock` C module for high-resolution timing on plain Lua
+**Lua Versions:**
+- Lua 5.1.x through 5.4.x (code written in 5.1-compatible syntax)
+- LuaJIT 2.0.5+ (auto-detected and preferred for FFI-based timers)
+- No external Lua dependencies for the core library
+
+**Tools & CI:**
+- Build: GNU Make (required for native timer compilation)
+- Tests: Busted test runner
+- Linting: Luacheck (0 warnings target) and Selene v1.0.0 (0 errors target)
+- Code Formatting: StyLua (automatic formatting)
+- Code Coverage: Luacov with Coveralls integration
+
+**Optional:**
+- `chrono.clock` C module for nanosecond-resolution timing on plain Lua
+- FFI available on LuaJIT for high-resolution wall-clock and CPU timers
 
 ## License
 
-Code is licensed under the [GNU General Public License v2](../LICENSE). Documentation
-is licensed under [Creative Commons Attribution-NonCommercial 4.0 International](../LICENSE-DOCS).
+- **Code**: Licensed under the [GNU General Public License v2.0](LICENSE)
+- **Documentation**: Licensed under [Creative Commons Attribution-NonCommercial 4.0 International](LICENSE-DOCS)
+
+See the individual license files in the repository root for complete terms.
