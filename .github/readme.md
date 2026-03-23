@@ -82,10 +82,10 @@ chrono --file bench/string_bench.lua --iterations 500 --warmup 100 --format pret
 
 Run `chrono --help` for all flags.
 
-For terminal formats (`text` and `pretty`), chrono now streams each benchmark
-result as soon as it completes. Use `--defer-print` to restore the previous
-per-file buffered output. JSON output stays deferred so each suite remains a
-clean machine-readable document.
+For terminal formats (`text` and `pretty`), chrono streams each benchmark
+result as it completes. Use `--defer-print` to restore buffered output.
+JSON output stays deferred so each suite remains a clean machine-readable
+document. See [Installation](#installation) for setup.
 
 ## Installation
 
@@ -109,7 +109,7 @@ into your LuaRocks bin directory, typically in your `PATH`).
 ## Configuration (`.chrono`)
 
 chrono loads a `.chrono` file from the working directory if present. The format
-is a plain Lua table:
+is a Lua table returned from the file:
 
 ```lua
 return {
@@ -146,16 +146,23 @@ as it completes. This provides live feedback for long benchmark runs.
 - **To buffer output:** Use `--defer-print` on CLI or `defer_print = true` in `.chrono`
 - **JSON output:** Always deferred (buffered per-file) to maintain valid JSON documents
 
-**Example:** Live streaming shows results as benchmarks finish:
+When streaming is active, chrono prints the suite header once, emits each
+benchmark's statistics as it finishes, and then prints a summary line:
 
 ```
-suite_name: Benchmarks
-↓
-[Benchmark 1] ✓ 156.234 ± 8.245 ops/sec
-[Benchmark 2] ✓ 45.623 ± 2.134 ops/sec
-[Benchmark 3] ✓ 923.456 ± 45.234 ops/sec
-↓
-completed in 12.456 seconds
+Benchmark Suite: My Suite
+Runtime: Lua 5.1  |  Timer: os.clock()
+
+  [1] string.rep
+         mean    0.042 ms        min    0.038 ms      median    0.041 ms
+       stddev    0.003 ms        max    0.051 ms         p95    0.048 ms
+      ops/sec    23.81  K    samples        1000         p99    0.050 ms
+        total   42.123 ms
+
+  [2] concatenation
+         ...
+
+2 benchmark(s) | 0 error(s)
 ```
 
 CLI flags override `.chrono` values. Each benchmark file must `return` a
@@ -331,13 +338,13 @@ the C module may be compiled against an incompatible Lua ABI. Both wall-clock
 and CPU-time timers follow this priority independently. The report header
 always shows which timer backend was actually used.
 
-### Building the native timer (optional)
+## Building the native timer (optional)
 
 The `chrono.clock` C module provides nanosecond-resolution timing on **any**
 Lua version (5.1+), not just LuaJIT. It is optional — everything works without
 it, just at lower timer resolution.
 
-#### Linux / macOS
+### Linux / macOS
 
 Requires Lua headers (`lua5.1-dev`, `lua5.4-dev`, etc.) and `pkg-config` or
 LuaRocks for auto-detection. The included Makefile detects Lua headers via:
@@ -352,12 +359,12 @@ make clock
 cc -O2 -shared -fPIC -I/usr/include/lua5.1 -o c/chrono/clock.so c/clock.c -lrt
 ```
 
-#### Windows
+### Windows
 
 Windows does not ship with a C compiler or `make`, so you need to install them
 first. After installing a compiler, build with explicit include/library paths:
 
-##### Option A — Zig (recommended, single download, no PATH pain)
+#### Option A — Zig (recommended, single download, no PATH pain)
 
 1. Download the latest **zig** archive from <https://ziglang.org/download/> and
    extract it to a convenient location (e.g. `C:\zig`).
@@ -373,7 +380,7 @@ first. After installing a compiler, build with explicit include/library paths:
    make clock CC="zig cc" LUA_INCDIR=C:/path/to/lua/include LUA_LIB=lua51
    ```
 
-##### Option B — MSYS2 / MinGW-w64
+#### Option B — MSYS2 / MinGW-w64
 
 1. Install [MSYS2](https://www.msys2.org/).
 2. From the **MSYS2 UCRT64** shell, install toolchain and make:
@@ -388,7 +395,7 @@ first. After installing a compiler, build with explicit include/library paths:
    make clock LUA_INCDIR=/path/to/lua/include LUA_LIB=lua51
    ```
 
-##### Option C — MSVC (Developer Command Prompt)
+#### Option C — MSVC (Developer Command Prompt)
 
 Open a **Developer Command Prompt** or **Developer PowerShell** and compile
 directly:
@@ -399,7 +406,7 @@ cl /O2 /LD c/clock.c /Ic:\path\to\lua\include lua51.lib /Fe:c/chrono/clock.dll
 
 Replace `lua51` with the library name matching your Lua version.
 
-#### Makefile variables
+### Makefile variables
 
 | Variable     | Default (auto-detected)     | Description                             |
 | ------------ | --------------------------- | --------------------------------------- |
@@ -411,7 +418,7 @@ Replace `lua51` with the library name matching your Lua version.
 The Makefile builds the module into `c/chrono/` automatically; `cli.lua`
 sets `package.cpath` to find it there.
 
-#### Using with LuaRocks
+### Using with LuaRocks
 
 When installing `chrono-clock` via LuaRocks on Windows, explicitly provide your
 compiler and linker:
@@ -433,7 +440,9 @@ links correctly with your Lua installation.
   noise.
 - Run benchmarks multiple times and compare across runs.
 
-## Running the tests
+## Contributing
+
+### Running the tests
 
 Tests use [busted](https://lunarmodules.github.io/busted/). A `.busted` config
 is included in the repository root.
@@ -457,16 +466,16 @@ luacheck lua/ cli.lua verify.lua bench/
 selene --display-style=quiet lua/ cli.lua verify.lua bench/
 ```
 
-## Development
+### Development
 
-### Required tools
+#### Required tools
 
 - Lua 5.1+ or LuaJIT 2.0+ (for running)
 - cc (any C compiler for optional native timer)
 - GNU Make (for building the C module)
 - Busted (for tests): `luarocks install busted`
 
-### Common tasks
+#### Common tasks
 
 ```sh
 # Build the native timer
@@ -488,7 +497,7 @@ stylua .
 make clean
 ```
 
-### Project conventions
+#### Project conventions
 
 - **Code style:** StyLua 2-space indentation, Unix line endings
 - **Linting:** Luacheck + Selene with zero-warning policy
@@ -496,7 +505,7 @@ make clean
 - **Module organization:** Each top-level feature is a separate .lua file in
   `lua/chrono/`
 
-## Releasing to LuaRocks
+### Releasing to LuaRocks
 
 The project publishes two packages to [LuaRocks](https://luarocks.org):
 
@@ -505,13 +514,13 @@ The project publishes two packages to [LuaRocks](https://luarocks.org):
 | `chrono`       | `chrono-scm-1.rockspec`       | `rockspecs/chrono-X.Y.Z-1.rockspec`       |
 | `chrono-clock` | `chrono-clock-scm-1.rockspec` | `rockspecs/chrono-clock-X.Y.Z-1.rockspec` |
 
-### Dev uploads
+#### Dev uploads
 
 Dev (`scm`) rockspecs live at the repository root. They are uploaded
 automatically on every tagged push with `--force --skip-pack` (no `.src.rock`
 artifact). This keeps the development channel always up-to-date.
 
-### Stable releases
+#### Stable releases
 
 Versioned rockspecs live in `rockspecs/`. When a tag matching the rockspec
 version exists (e.g. tag `v1.0.0` matches `chrono-1.0.0-1.rockspec`), the
@@ -521,7 +530,7 @@ workflow:
 2. Builds a `.src.rock` archive.
 3. Uploads the `.src.rock` alongside the rockspec.
 
-### Release checklist
+#### Release checklist
 
 1. Create a versioned rockspec in `rockspecs/`:
    ```sh
@@ -538,7 +547,7 @@ workflow:
 6. The release workflow creates a GitHub release and then publishes both dev
    and stable rocks to LuaRocks in parallel.
 
-### Required secret
+#### Required secret
 
 Add a repository secret named `LUAROCKS_API_KEY` containing your LuaRocks API
 key. The workflow uses `--temp-key` to avoid persisting credentials.
@@ -551,11 +560,13 @@ key. The workflow uses `--temp-key` to avoid persisting credentials.
 - LuaJIT 2.0.5+ (auto-detected and preferred for FFI-based timers)
 - No external Lua dependencies for the core library
 
+**Platforms:** Linux, macOS, Windows
+
 **Tools & CI:**
 
 - Build: GNU Make (required for native timer compilation)
 - Tests: Busted test runner
-- Linting: Luacheck (0 warnings target) and Selene v1.0.0 (0 errors target)
+- Linting: Luacheck (0 warnings target) and Selene (0 errors target)
 - Code Formatting: StyLua (automatic formatting)
 - Code Coverage: Luacov with Coveralls integration
 
@@ -566,7 +577,5 @@ key. The workflow uses `--temp-key` to avoid persisting credentials.
 
 ## License
 
-- **Code**: Licensed under the [GNU General Public License v2.0](LICENSE)
-- **Documentation**: Licensed under [Creative Commons Attribution-NonCommercial 4.0 International](LICENSE-DOCS)
-
-See the individual license files in the repository root for complete terms.
+Code is licensed under the [GNU General Public License v2](../LICENSE). Documentation
+is licensed under [Creative Commons Attribution-NonCommercial 4.0 International](../LICENSE-DOCS).
