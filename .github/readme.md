@@ -2,6 +2,7 @@
 
 [![Tests](https://img.shields.io/github/actions/workflow/status/sravioli/chrono/tests.yaml?label=Tests&logo=Lua)](https://github.com/sravioli/chrono/actions?workflow=tests)
 [![Lint](https://img.shields.io/github/actions/workflow/status/sravioli/chrono/lint.yaml?label=Lint&logo=Lua)](https://github.com/sravioli/chrono/actions?workflow=lint)
+[![Coverage](https://img.shields.io/coverallsCoverage/github/sravioli/chrono?label=Coverage&logo=coveralls)](https://coveralls.io/github/sravioli/chrono)
 
 A zero-dependency benchmarking engine for **Lua 5.1** and **LuaJIT 2.x**.
 
