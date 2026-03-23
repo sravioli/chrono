@@ -1,0 +1,6 @@
+#!/usr/bin/env lua
+--- chrono — benchmark runner executable.
+--- Installed by LuaRocks into the system bin directory.
+--- For local development, use cli.lua instead.
+
+require("chrono.cli").main(arg)

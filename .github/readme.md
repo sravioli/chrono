@@ -70,11 +70,61 @@ chrono.report(result, "text")
 ### CLI
 
 ```sh
-lua cli.lua --file examples/cli_sample.lua \
-    --iterations 500 --warmup 100 --format pretty
+# Install from LuaRocks
+luarocks install chrono
+
+# Run benchmarks (auto-discovers bench/*_bench.lua)
+chrono
+
+# Or specify files explicitly
+chrono --file bench/string_bench.lua --iterations 500 --warmup 100 --format pretty
 ```
 
-Run `lua cli.lua --help` for all flags.
+Run `chrono --help` for all flags.
+
+## Installation
+
+```sh
+# Core library + CLI executable
+luarocks install chrono
+
+# Optional: native high-resolution timer (requires a C compiler)
+luarocks install chrono-clock
+```
+
+After installation the `chrono` command is available system-wide (like `busted`).
+
+## Configuration (`.chrono`)
+
+chrono loads a `.chrono` file from the working directory if present. The format
+is a Lua table — identical to busted's `.busted` convention:
+
+```lua
+return {
+  default = {
+    ROOT       = { "bench/" },
+    pattern    = "_bench",
+    format     = "pretty",
+    iterations = 500,
+    warmup     = 100,
+  },
+}
+```
+
+| Field          | Type   | Default      | Description                               |
+| -------------- | ------ | ------------ | ----------------------------------------- |
+| `ROOT`         | table  | `{"bench/"}` | Directories to search for benchmark files |
+| `pattern`      | string | `"_bench"`   | Lua pattern matched against filenames     |
+| `format`       | string | `"text"`     | Output format (`text`, `pretty`, `json`)  |
+| `iterations`   | number | 100          | Measurement iterations                    |
+| `warmup`       | number | 0            | Warmup iterations                         |
+| `timer_source` | string | `"wall"`     | `"wall"` or `"cpu"`                       |
+
+All other suite options (`min_time`, `batch_size`, `gc_off`, `gc_collect`,
+`randomize`, `out_of_process`) are also supported.
+
+CLI flags override `.chrono` values. Each benchmark file must `return` a
+suite object.
 
 ## API reference
 
@@ -187,33 +237,58 @@ Suite results wrap individual results:
 
 ## CLI flags
 
-| Flag               | Description                           | Default |
-| ------------------ | ------------------------------------- | ------- |
-| `--file <path>`    | Benchmark file to load (**required**) | –       |
-| `--format <fmt>`   | `text`, `pretty`, or `json`           | text    |
-| `--timer <src>`    | `wall` or `cpu`                       | wall    |
-| `--iterations N`   | Measurement iterations                | 100     |
-| `--warmup N`       | Warmup iterations                     | 0       |
-| `--min-time S`     | Minimum measurement seconds           | 0       |
-| `--batch-size N`   | Calls per timed iteration             | 1       |
-| `--gc-off`         | Disable GC during measurement         | –       |
-| `--gc-collect`     | Force GC between suite benchmarks     | –       |
-| `--randomize`      | Randomize benchmark execution order   | –       |
-| `--out-of-process` | Run each benchmark in a child process | –       |
-| `--help`           | Print usage                           | –       |
+| Flag               | Description                            | Default  |
+| ------------------ | -------------------------------------- | -------- |
+| `--lua <interp>`   | Re-run under a different interpreter   | –        |
+| `--file <path>`    | Benchmark file to run (repeatable)     | –        |
+| `--root <dir>`     | Root directory for discovery (repeat.) | `bench/` |
+| `--pattern <pat>`  | Lua filename pattern for discovery     | `_bench` |
+| `--format <fmt>`   | `text`, `pretty`, or `json`            | `text`   |
+| `--timer <src>`    | `wall` or `cpu`                        | `wall`   |
+| `--iterations N`   | Measurement iterations                 | 100      |
+| `--warmup N`       | Warmup iterations                      | 0        |
+| `--min-time S`     | Minimum measurement seconds            | 0        |
+| `--batch-size N`   | Calls per timed iteration              | 1        |
+| `--gc-off`         | Disable GC during measurement          | –        |
+| `--gc-collect`     | Force GC between suite benchmarks      | –        |
+| `--randomize`      | Randomize benchmark execution order    | –        |
+| `--out-of-process` | Run each benchmark in a child process  | –        |
+| `--help`           | Print usage                            | –        |
 
-The benchmark file must `return` a suite object.
+**Switching runtimes:** `chrono --lua luajit` re-executes the entire CLI
+under LuaJIT (or any other interpreter). This lets you compare Lua vs
+LuaJIT results without separate installs.
+
+When no `--file` arguments are given, chrono auto-discovers benchmark files
+by recursively searching `--root` directories for `.lua` files matching
+`--pattern` (default: `bench/*_bench.lua`). Each file must `return` a
+suite object.
 
 ## Timer sources
 
 The engine auto-selects the best available timer in this priority order:
 
+### Wall-clock timers
+
 | Runtime | Priority | Mechanism                                         | Resolution |
 | ------- | -------- | ------------------------------------------------- | ---------- |
 | PUC Lua | 1        | `chrono.clock` C module                           | ~1 ns      |
-| PUC Lua | 2        | `os.clock()` fallback                             | ~1 ms      |
+| PUC Lua | 2        | `os.clock()` fallback (CPU time, not wall)        | ~1 ms      |
 | LuaJIT  | 1        | FFI (`QueryPerformanceCounter` / `clock_gettime`) | ~1–100 ns  |
-| LuaJIT  | 2        | `os.clock()` fallback                             | ~1 ms      |
+| LuaJIT  | 2        | `os.clock()` fallback (CPU time, not wall)        | ~1 ms      |
+
+### CPU timers
+
+| Runtime | Priority | Mechanism                                                                | Resolution |
+| ------- | -------- | ------------------------------------------------------------------------ | ---------- |
+| PUC Lua | 1        | `chrono.clock` C module (`CLOCK_PROCESS_CPUTIME_ID` / `GetProcessTimes`) | ~1 ns      |
+| PUC Lua | 2        | `os.clock()` fallback                                                    | ~1 ms      |
+| LuaJIT  | 1        | FFI (`GetProcessTimes` / `CLOCK_PROCESS_CPUTIME_ID`)                     | ~100 ns    |
+| LuaJIT  | 2        | `os.clock()` fallback                                                    | ~1 ms      |
+
+> **macOS note:** On macOS < 10.12, the C module uses `mach_absolute_time`
+> instead of `clock_gettime` for wall-clock timing. On 10.12+, POSIX
+> `clock_gettime(CLOCK_MONOTONIC)` is available and preferred.
 
 The `chrono.clock` C module is skipped on LuaJIT because FFI is preferred and
 the C module may be compiled against an incompatible Lua ABI. Both wall-clock
@@ -310,14 +385,22 @@ config and `cli.lua` both set `package.cpath` to find it there.
 
 ```
 chrono/
-├── cli.lua                       CLI entry point
+├── bin/chrono                    Executable installed by LuaRocks
+├── cli.lua                       Legacy CLI entry point (standalone)
 ├── verify.lua                    Timer detection sanity check
 ├── Makefile                      Top-level targets (delegates to c/)
+├── .chrono                       Default config (like .busted)
+├── .busted                       Test runner config
+├── .gitignore                    Git exclusions (build artifacts)
+├── .stylua.toml                  StyLua formatter config
+├── chrono-scm-1.rockspec         LuaRocks package (library + CLI)
+├── chrono-clock-scm-1.rockspec   LuaRocks package (optional C timer)
 ├── c/
 │   ├── Makefile                  Builds chrono.clock C module
 │   └── clock.c                   Native high-resolution timer
 ├── lua/chrono/
 │   ├── init.lua                  Main module & suite API
+│   ├── cli.lua                   CLI engine (config, discovery, runner)
 │   ├── runner.lua                Benchmark execution engine
 │   ├── statistics.lua            Statistical computations
 │   ├── timer.lua                 Timer abstraction (auto-detects best source)
@@ -329,9 +412,14 @@ chrono/
 │       ├── text.lua              Plain-text reporter
 │       ├── pretty.lua            ANSI-colored UTF-8 box-drawing reporter
 │       └── json.lua              Machine-readable JSON reporter
-├── examples/
-│   ├── basic.lua                 Library usage example
-│   └── cli_sample.lua            CLI usage example
+├── bench/                        Benchmark files (auto-discovered by CLI)
+│   ├── reporter_bench.lua        Reporter formatting benchmarks
+│   ├── runner_bench.lua          Runner overhead benchmarks
+│   ├── statistics_bench.lua      Statistics computation benchmarks
+│   ├── string_bench.lua          String operation benchmarks
+│   ├── suite_bench.lua           Suite API benchmarks
+│   ├── table_bench.lua           Table operation benchmarks
+│   └── timer_bench.lua           Timer call overhead benchmarks
 └── spec/
     ├── smoke_spec.lua            End-to-end API tests
     └── stats_spec.lua            Statistics correctness tests
