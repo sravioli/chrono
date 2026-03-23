@@ -109,7 +109,7 @@ into your LuaRocks bin directory, typically in your `PATH`).
 ## Configuration (`.chrono`)
 
 chrono loads a `.chrono` file from the working directory if present. The format
-is a Lua table — identical to busted's `.busted` convention:
+is a plain Lua table:
 
 ```lua
 return {
@@ -408,8 +408,8 @@ Replace `lua51` with the library name matching your Lua version.
 | `LUA_LIBDIR` | (empty on Unix)             | Path to the Lua library directory       |
 | `LUA_LIB`    | `lua54` (Windows only)      | Lua library name to link (e.g. `lua51`) |
 
-The Makefile builds the module into `c/chrono/` automatically; the `.busted`
-config and `cli.lua` both set `package.cpath` to find it there.
+The Makefile builds the module into `c/chrono/` automatically; `cli.lua`
+sets `package.cpath` to find it there.
 
 #### Using with LuaRocks
 
@@ -432,69 +432,6 @@ links correctly with your Lua installation.
 - Use `batch_size` for sub-microsecond operations to reduce clock granularity
   noise.
 - Run benchmarks multiple times and compare across runs.
-
-## Planned Features
-
-See [docs/spinner-design.md](docs/spinner-design.md) for the design of a future
-progress indicator UI. This feature provides live feedback for very long
-benchmark runs without perturbing measurement accuracy.
-
-## Project structure
-
-```
-chrono/
-├── bin/chrono                    Executable installed by LuaRocks
-├── cli.lua                       Standalone CLI entry point
-├── verify.lua                    Timer detection sanity check
-├── Makefile                      Top-level targets (delegates to c/)
-├── .busted                       Test runner config
-├── .chrono                       Default CLI config (like .busted)
-├── .gitignore                    Git exclusions (build artifacts)
-├── .stylua.toml                  StyLua formatter config
-├── selene.toml                   Selene linter config
-├── chrono_std.yml                Custom Selene std library (Lua 5.1 + LuaJIT globals)
-├── chrono-scm-1.rockspec         LuaRocks package (library + CLI)
-├── chrono-clock-scm-1.rockspec   LuaRocks package (optional C timer)
-├── .github/
-│   ├── workflows/
-│   │   ├── tests.yaml            Test matrix (Lua 5.1 + LuaJIT)
-│   │   ├── lint.yaml             Luacheck + Selene + StyLua checks
-│   │   └── release.yaml          Release automation
-│   └── readme.md                 Repository documentation
-├── c/
-│   ├── Makefile                  Builds chrono.clock C module
-│   ├── clock.c                   Native high-resolution timer
-│   └── chrono/                   Compiled module output directory
-├── lua/chrono/
-│   ├── init.lua                  Main module & suite API
-│   ├── cli.lua                   CLI engine (config, discovery, runner)
-│   ├── runner.lua                Benchmark execution engine
-│   ├── statistics.lua            Statistical computations & formatting
-│   ├── timer.lua                 Timer abstraction (auto-detects best source)
-│   ├── subprocess.lua            Out-of-process execution via io.popen
-│   ├── devnull.lua               No-op output sink
-│   ├── jitstats.lua              LuaJIT trace statistics collector
-│   ├── jitutil.lua               JIT pre-compilation verification
-│   └── reporters/
-│       ├── text.lua              Plain-text reporter with streaming support
-│       ├── pretty.lua            ANSI-colored UTF-8 box-drawing reporter with streaming
-│       └── json.lua              Machine-readable JSON reporter (deferred output)
-├── bench/                        (Auto-discovered by CLI)
-│   ├── reporter_bench.lua        Reporter formatting benchmarks
-│   ├── runner_bench.lua          Runner overhead benchmarks
-│   ├── statistics_bench.lua      Statistics computation benchmarks
-│   ├── string_bench.lua          String operation benchmarks
-│   ├── suite_bench.lua           Suite API benchmarks
-│   ├── table_bench.lua           Table operation benchmarks
-│   └── timer_bench.lua           Timer call overhead benchmarks
-├── spec/
-│   ├── smoke_spec.lua            End-to-end API tests
-│   └── stats_spec.lua            Statistics correctness tests
-├── docs/
-│   └── spinner-design.md         Future progress UI design (deferred feature)
-├── LICENSE                       GNU General Public License v2
-└── LICENSE-DOCS                  Creative Commons Attribution-NonCommercial 4.0
-```
 
 ## Running the tests
 
@@ -558,6 +495,53 @@ make clean
 - **Testing:** Busted with 100% pass rate required
 - **Module organization:** Each top-level feature is a separate .lua file in
   `lua/chrono/`
+
+## Releasing to LuaRocks
+
+The project publishes two packages to [LuaRocks](https://luarocks.org):
+
+| Package        | Rockspec (dev)                | Rockspec (stable)                         |
+| -------------- | ----------------------------- | ----------------------------------------- |
+| `chrono`       | `chrono-scm-1.rockspec`       | `rockspecs/chrono-X.Y.Z-1.rockspec`       |
+| `chrono-clock` | `chrono-clock-scm-1.rockspec` | `rockspecs/chrono-clock-X.Y.Z-1.rockspec` |
+
+### Dev uploads
+
+Dev (`scm`) rockspecs live at the repository root. They are uploaded
+automatically on every tagged push with `--force --skip-pack` (no `.src.rock`
+artifact). This keeps the development channel always up-to-date.
+
+### Stable releases
+
+Versioned rockspecs live in `rockspecs/`. When a tag matching the rockspec
+version exists (e.g. tag `v1.0.0` matches `chrono-1.0.0-1.rockspec`), the
+workflow:
+
+1. Uploads the rockspec to LuaRocks.
+2. Builds a `.src.rock` archive.
+3. Uploads the `.src.rock` alongside the rockspec.
+
+### Release checklist
+
+1. Create a versioned rockspec in `rockspecs/`:
+   ```sh
+   cp chrono-scm-1.rockspec rockspecs/chrono-1.0.0-1.rockspec
+   ```
+2. Edit the copy: set `version = "1.0.0-1"` and update `source.tag`.
+3. Repeat for `chrono-clock` if the native timer changed.
+4. Add the new paths to the `rockspecs` input in `.github/workflows/release.yaml`.
+5. Commit, tag, and push:
+   ```sh
+   git tag v1.0.0
+   git push --tags
+   ```
+6. The release workflow creates a GitHub release and then publishes both dev
+   and stable rocks to LuaRocks in parallel.
+
+### Required secret
+
+Add a repository secret named `LUAROCKS_API_KEY` containing your LuaRocks API
+key. The workflow uses `--temp-key` to avoid persisting credentials.
 
 ## Compatibility
 
