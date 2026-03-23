@@ -7,19 +7,21 @@ local M = {}
 --- No-op write function.  Accepts any number of arguments, returns true.
 -- Mirrors the signature of file:write().
 function M.write(...)
+  local _ = select("#", ...)
   return true
 end
 
 --- File-like object with a :write() method that discards output.
 M.file = setmetatable({}, {
   __index = {
-    write = function(self, ...)
+    write = function(_, ...)
+      select("#", ...)
       return true
     end,
-    flush = function(self)
+    flush = function(_)
       return true
     end,
-    close = function(self)
+    close = function(_)
       return true
     end,
   },

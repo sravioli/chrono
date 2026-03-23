@@ -2,6 +2,7 @@ return {
   default = {
     ROOT = { "bench/" },
     pattern = "_bench",
-    format = "pretty"
+    format = "pretty",
+    defer_print = false,
   },
 }

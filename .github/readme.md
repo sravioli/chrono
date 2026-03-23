@@ -82,6 +82,11 @@ chrono --file bench/string_bench.lua --iterations 500 --warmup 100 --format pret
 
 Run `chrono --help` for all flags.
 
+For terminal formats (`text` and `pretty`), chrono now streams each benchmark
+result as soon as it completes. Use `--defer-print` to restore the previous
+per-file buffered output. JSON output stays deferred so each suite remains a
+clean machine-readable document.
+
 ## Installation
 
 ```sh
@@ -105,6 +110,7 @@ return {
     ROOT       = { "bench/" },
     pattern    = "_bench",
     format     = "pretty",
+    defer_print = false,
     iterations = 500,
     warmup     = 100,
   },
@@ -116,6 +122,7 @@ return {
 | `ROOT`         | table  | `{"bench/"}` | Directories to search for benchmark files |
 | `pattern`      | string | `"_bench"`   | Lua pattern matched against filenames     |
 | `format`       | string | `"text"`     | Output format (`text`, `pretty`, `json`)  |
+| `defer_print`  | bool   | `false`      | Buffer terminal output until suite end    |
 | `iterations`   | number | 100          | Measurement iterations                    |
 | `warmup`       | number | 0            | Warmup iterations                         |
 | `timer_source` | string | `"wall"`     | `"wall"` or `"cpu"`                       |
@@ -244,6 +251,8 @@ Suite results wrap individual results:
 | `--root <dir>`     | Root directory for discovery (repeat.) | `bench/` |
 | `--pattern <pat>`  | Lua filename pattern for discovery     | `_bench` |
 | `--format <fmt>`   | `text`, `pretty`, or `json`            | `text`   |
+| `--defer-print`    | Buffer `text`/`pretty` output per file | off      |
+| `--no-defer-print` | Stream `text`/`pretty` output live     | on       |
 | `--timer <src>`    | `wall` or `cpu`                        | `wall`   |
 | `--iterations N`   | Measurement iterations                 | 100      |
 | `--warmup N`       | Warmup iterations                      | 0        |
@@ -258,6 +267,10 @@ Suite results wrap individual results:
 **Switching runtimes:** `chrono --lua luajit` re-executes the entire CLI
 under LuaJIT (or any other interpreter). This lets you compare Lua vs
 LuaJIT results without separate installs.
+
+**Streaming output:** when `--format` is `text` or `pretty`, chrono prints the
+suite header once, emits each benchmark result as it finishes, and then prints
+the suite summary. Use `--defer-print` when you want the old buffered behavior.
 
 When no `--file` arguments are given, chrono auto-discovers benchmark files
 by recursively searching `--root` directories for `.lua` files matching

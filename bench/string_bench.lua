@@ -11,7 +11,7 @@ end)
 
 suite:add("concatenation", function()
   local s = ""
-  for i = 1, 100 do
+  for _ = 1, 100 do
     s = s .. "x"
   end
 end)

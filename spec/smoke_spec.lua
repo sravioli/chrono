@@ -1,6 +1,8 @@
 --- Smoke tests: end-to-end library API, formatting, and error handling.
 
 local chrono = require "chrono"
+local pretty_reporter = require "chrono.reporters.pretty"
+local text_reporter = require "chrono.reporters.text"
 
 describe("chrono.run", function()
   it("returns correct name and sample count", function()
@@ -195,6 +197,34 @@ describe("chrono.suite", function()
     local results = s:run()
     assert.are.equal(0, #results.benchmarks)
   end)
+
+  it("invokes on_benchmark_result as each benchmark finishes", function()
+    local s = chrono.suite("callbacks", { iterations = 4 })
+    local seen = {}
+    s:add("a", function() end)
+    s:add("b", function() end)
+
+    local results = s:run {
+      on_benchmark_result = function(result, idx, bench, partial_results)
+        seen[#seen + 1] = {
+          idx = idx,
+          name = result.name,
+          bench_name = bench.name,
+          count = #partial_results.benchmarks,
+          suite_timer = partial_results.timer_source,
+        }
+      end,
+    }
+
+    assert.are.equal(2, #seen)
+    assert.are.same({ 1, 2 }, { seen[1].idx, seen[2].idx })
+    assert.are.same({ "a", "b" }, { seen[1].name, seen[2].name })
+    assert.are.same({ "a", "b" }, { seen[1].bench_name, seen[2].bench_name })
+    assert.are.same({ 1, 2 }, { seen[1].count, seen[2].count })
+    assert.is_string(seen[1].suite_timer)
+    assert.is_nil(results.benchmarks[1].timer_source)
+    assert.is_nil(results.benchmarks[2].timer_source)
+  end)
 end)
 
 describe("chrono.format", function()
@@ -229,6 +259,39 @@ describe("chrono.format", function()
       end)
       local text = chrono.format(s:run(), "text")
       assert.is_truthy(text:find "ERROR")
+    end)
+
+    it("supports incremental suite rendering", function()
+      local s = chrono.suite("stream-text", { iterations = 5 })
+      s:add("alpha", function() end)
+      local results = s:run()
+
+      local header = text_reporter.start_suite(results)
+      local bench = text_reporter.format_benchmark(results.benchmarks[1], 1)
+      local footer = text_reporter.finish_suite(results)
+
+      assert.is_truthy(header:find "stream%-text")
+      assert.is_truthy(header:find "Runtime")
+      assert.is_truthy(bench:find "alpha")
+      assert.is_truthy(bench:find "mean")
+      assert.is_truthy(footer:find "1 benchmark%(s%)")
+    end)
+  end)
+
+  describe("pretty", function()
+    it("supports incremental suite rendering", function()
+      local s = chrono.suite("stream-pretty", { iterations = 5 })
+      s:add("beta", function() end)
+      local results = s:run()
+
+      local header = pretty_reporter.start_suite(results)
+      local bench = pretty_reporter.format_benchmark(results.benchmarks[1], 1)
+      local footer = pretty_reporter.finish_suite(results)
+
+      assert.is_truthy(header:find "stream%-pretty")
+      assert.is_truthy(header:find "runtime")
+      assert.is_truthy(bench:find "beta")
+      assert.is_truthy(footer:find "benchmark%(s%)")
     end)
   end)
 
@@ -266,6 +329,11 @@ describe("chrono.format", function()
     assert.has_error(function()
       chrono.format(r, "csv")
     end)
+  end)
+
+  it("exposes reporters by format", function()
+    assert.are.equal(text_reporter, chrono.get_reporter "text")
+    assert.are.equal(pretty_reporter, chrono.get_reporter "pretty")
   end)
 end)
 

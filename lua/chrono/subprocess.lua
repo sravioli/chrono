@@ -2,12 +2,9 @@
 -- Runs each benchmark in an isolated child process, collecting results via
 -- JSON over stdout.  Requires io.popen (available in PUC Lua and LuaJIT).
 
-local json_reporter = require "chrono.reporters.json"
 local timer = require "chrono.timer"
 
 local M = {}
-
-local SEP = package.config:sub(1, 1) -- "/" or "\"
 
 --- Detect the Lua interpreter that launched the current process.
 -- @return string  path to the interpreter
@@ -54,38 +51,6 @@ local function child_preamble()
   )
 end
 
---- Minimally JSON-decode a result table from stdout.
--- We only need to parse back what our own JSON reporter emits.
--- This is a deliberately simple decoder covering the subset we produce.
-local function decode_json(s)
-  -- Remove leading/trailing whitespace
-  s = s:match "^%s*(.-)%s*$"
-  if s == "" then
-    return nil, "empty output"
-  end
-
-  -- Sandboxed environment for evaluation: only allow safe constructors.
-  -- We convert JSON into Lua table syntax then load it safely.
-  local lua_src = s
-    :gsub('"NaN"', "0/0")
-    :gsub('"Infinity"', "1/0")
-    :gsub('"-Infinity"', "-1/0")
-    :gsub('"([^"]-)":', "[%1]=") -- "key": -> [key]=
-    :gsub('"([^"]-)":', function(k)
-      -- handle remaining key patterns
-      return '["' .. k .. '"]='
-    end)
-    :gsub("%[([%w_]+)%]=", function(k)
-      return '["' .. k .. '"]='
-    end)
-    :gsub("null", "nil")
-
-  -- Safer approach: use the JSON reporter's own decode or just match fields.
-  -- Actually, the simplest reliable approach: parse key-value pairs directly.
-  -- Let's use a tiny recursive descent instead of eval.
-  return nil, "json decode not needed in popen mode"
-end
-
 --- Run a single benchmark in a child process.
 -- @param name string          benchmark display name
 -- @param bench_file string    path to the benchmark file (must return a suite)
@@ -112,7 +77,8 @@ function M.run_single(name, bench_file, bench_name, opts)
   local script = string.format(
     '%s local chrono=require("chrono");local json=require("chrono.reporters.json");'
       .. "local chunk,err=loadfile(%q);if not chunk then io.write(json.format({name=%q,error=err}));os.exit(0) end;"
-      .. "local ok,suite=pcall(chunk);if not ok then io.write(json.format({name=%q,error=tostring(suite)}));os.exit(0) end;"
+      .. "local ok,suite=pcall(chunk);"
+      .. "if not ok then io.write(json.format({name=%q,error=tostring(suite)}));os.exit(0) end;"
       .. "local found;for _,b in ipairs(suite._benchmarks) do if b.name==%q then found=b;break end end;"
       .. "if not found then io.write(json.format({name=%q,error='benchmark not found'}));os.exit(0) end;"
       .. 'local runner=require("chrono.runner");local r=runner.run_single(found.name,found.fn,%s);'
@@ -133,7 +99,7 @@ function M.run_single(name, bench_file, bench_name, opts)
   end
 
   local output = handle:read "*a"
-  local success, exit_reason, exit_code = handle:close()
+  local _, exit_reason, exit_code = handle:close()
 
   if not output or output == "" then
     return {

@@ -94,10 +94,12 @@ function Suite:run(run_opts)
   local gc_collect = merged.gc_collect
   local out_of_process = merged.out_of_process
   local bench_file = merged.bench_file
+  local on_benchmark_result = merged.on_benchmark_result
   merged.randomize = nil
   merged.gc_collect = nil
   merged.out_of_process = nil
   merged.bench_file = nil
+  merged.on_benchmark_result = nil
 
   -- Build ordered list of benchmarks, applying filters
   local order = {}
@@ -144,25 +146,29 @@ function Suite:run(run_opts)
       end
     end
 
+    local result
     if out_of_process and bench_file then
       local subprocess = require "chrono.subprocess"
-      results.benchmarks[#results.benchmarks + 1] =
-        subprocess.run_single(b.name, bench_file, b.name, bopts)
+      result = subprocess.run_single(b.name, bench_file, b.name, bopts)
     else
-      results.benchmarks[#results.benchmarks + 1] = runner.run_single(b.name, b.fn, bopts)
+      result = runner.run_single(b.name, b.fn, bopts)
     end
+
+    if not results.timer_source and result.timer_source then
+      results.timer_source = result.timer_source
+    end
+
+    results.benchmarks[#results.benchmarks + 1] = result
+
+    if on_benchmark_result then
+      on_benchmark_result(result, #results.benchmarks, b, results)
+    end
+
+    result.timer_source = nil
 
     if gc_collect then
       collectgarbage "collect"
     end
-  end
-
-  -- Hoist timer_source to suite level (same for all benchmarks)
-  for _, b in ipairs(results.benchmarks) do
-    if not results.timer_source and b.timer_source then
-      results.timer_source = b.timer_source
-    end
-    b.timer_source = nil
   end
 
   return results
@@ -186,16 +192,21 @@ end
 
 local reporters = { text = text_reporter, json = json_reporter, pretty = pretty_reporter }
 
---- Format results as a string.
--- @param results table
--- @param fmt     string "text"|"json" (default "text")
--- @return string
-function M.format(results, fmt)
+function M.get_reporter(fmt)
   fmt = fmt or "text"
   local rpt = reporters[fmt]
   if not rpt then
     error("chrono: unknown format '" .. tostring(fmt) .. "'")
   end
+  return rpt
+end
+
+--- Format results as a string.
+-- @param results table
+-- @param fmt     string "text"|"json" (default "text")
+-- @return string
+function M.format(results, fmt)
+  local rpt = M.get_reporter(fmt)
   return rpt.format(results)
 end
 
@@ -216,7 +227,7 @@ local has_ffi = pcall(require, "ffi")
 -- @param name string
 -- @param opts table|nil
 -- @return boolean, string|nil
-function M.filters.require_ffi(name, opts)
+function M.filters.require_ffi(_, opts)
   if opts and opts.ffi_required and not has_ffi then
     return true, "FFI unavailable"
   end

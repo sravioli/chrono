@@ -15,6 +15,7 @@ local DEFAULTS = {
   ROOT = { "bench/" },
   pattern = "_bench",
   format = "text",
+  defer_print = false,
   timer_source = nil,
   iterations = nil,
   warmup = nil,
@@ -41,6 +42,8 @@ Options:
   --root <dir>         Root directories for auto-discovery (may be repeated)
   --pattern <pat>      Lua pattern for benchmark filenames  [default: _bench]
   --format <fmt>       Output format: text, json, pretty    [default: text]
+  --defer-print        Print suite results after all benchmarks in a file finish
+  --no-defer-print     Stream terminal results as each benchmark completes
   --timer <src>        Timer source: wall, cpu               [default: wall]
   --iterations <n>     Measurement iterations per benchmark  [default: 100]
   --warmup <n>         Warmup iterations per benchmark       [default: 0]
@@ -137,6 +140,19 @@ local function merge(dst, src)
   return dst
 end
 
+local function write_chunk(text, blank_after)
+  if not text or text == "" then
+    return
+  end
+  io.write(text)
+  if blank_after then
+    io.write "\n\n"
+  else
+    io.write "\n"
+  end
+  io.flush()
+end
+
 ---------------------------------------------------------------------------
 -- Config loading (.chrono)
 ---------------------------------------------------------------------------
@@ -202,6 +218,10 @@ local function parse_args(argv)
     elseif a == "--format" then
       i = i + 1
       opts.format = argv[i]
+    elseif a == "--defer-print" then
+      opts.defer_print = true
+    elseif a == "--no-defer-print" then
+      opts.defer_print = false
     elseif a == "--timer" then
       i = i + 1
       opts.timer_source = argv[i]
@@ -327,6 +347,9 @@ function M.main(argv)
   if cli.timer_source then
     config.timer_source = cli.timer_source
   end
+  if cli.defer_print ~= nil then
+    config.defer_print = cli.defer_print
+  end
   if cli.iterations then
     config.iterations = cli.iterations
   end
@@ -353,6 +376,10 @@ function M.main(argv)
   end
   if cli.pattern then
     config.pattern = cli.pattern
+  end
+
+  if config.format == "json" then
+    config.defer_print = true
   end
 
   local roots = #cli.roots > 0 and cli.roots or config.ROOT
@@ -412,15 +439,42 @@ function M.main(argv)
     run_opts.out_of_process = true
   end
 
+  local reporter = chrono.get_reporter(config.format)
+  local can_stream = not config.defer_print
+    and config.format ~= "json"
+    and reporter.start_suite
+    and reporter.format_benchmark
+    and reporter.finish_suite
+
   -- 5. Load and run each benchmark file
   local all_results = {}
-  for _, path in ipairs(files) do
+  for index, path in ipairs(files) do
     local suite = load_suite(path)
     if config.out_of_process then
       run_opts.bench_file = path
     end
-    local results = suite:run(run_opts)
-    all_results[#all_results + 1] = results
+    if can_stream then
+      local header_written = false
+      run_opts.on_benchmark_result = function(result, bench_index, _, partial_results)
+        if not header_written then
+          write_chunk(reporter.start_suite(partial_results), true)
+          header_written = true
+        end
+        write_chunk(reporter.format_benchmark(result, bench_index), true)
+      end
+
+      local results = suite:run(run_opts)
+      run_opts.on_benchmark_result = nil
+
+      if not header_written then
+        write_chunk(reporter.start_suite(results), true)
+      end
+      write_chunk(reporter.finish_suite(results), index < #files)
+    else
+      run_opts.on_benchmark_result = nil
+      local results = suite:run(run_opts)
+      all_results[#all_results + 1] = results
+    end
   end
 
   -- 6. Report

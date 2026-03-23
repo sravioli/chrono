@@ -10,6 +10,7 @@ suite:add("append (#t + 1)", function()
   for i = 1, 200 do
     t[#t + 1] = i
   end
+  local _ = t[200]
 end)
 
 suite:add("table.insert", function()

@@ -75,30 +75,53 @@ local function render_one(r, idx)
   return table.concat(lines, "\n"), false
 end
 
+local function count_errors(benchmarks)
+  local errs = 0
+  for _, b in ipairs(benchmarks or {}) do
+    if b.error then
+      errs = errs + 1
+    end
+  end
+  return errs
+end
+
+function M.start_suite(result)
+  return table.concat({
+    "Benchmark Suite: " .. (result.suite_name or "unnamed"),
+    fmt(
+      "Runtime: %s  |  Timer: %s",
+      result.runtime_version or "unknown",
+      result.timer_source or "N/A"
+    ),
+  }, "\n")
+end
+
+function M.format_benchmark(result, idx)
+  local text = render_one(result, idx)
+  return text
+end
+
+function M.finish_suite(result)
+  return fmt(
+    "%d benchmark(s) | %d error(s)",
+    #(result.benchmarks or {}),
+    count_errors(result.benchmarks)
+  )
+end
+
 --- Format a suite result or single result as text.
 function M.format(result)
   local parts = {}
 
   if result.benchmarks then
-    -- Suite result
-    parts[#parts + 1] = "Benchmark Suite: " .. (result.suite_name or "unnamed")
-    parts[#parts + 1] = fmt(
-      "Runtime: %s  |  Timer: %s",
-      result.runtime_version or "unknown",
-      result.timer_source or "N/A"
-    )
+    parts[#parts + 1] = M.start_suite(result)
     parts[#parts + 1] = ""
 
-    local errs = 0
     for i, b in ipairs(result.benchmarks) do
-      local text, is_err = render_one(b, i)
-      if is_err then
-        errs = errs + 1
-      end
-      parts[#parts + 1] = text
+      parts[#parts + 1] = M.format_benchmark(b, i)
       parts[#parts + 1] = ""
     end
-    parts[#parts + 1] = fmt("%d benchmark(s) | %d error(s)", #result.benchmarks, errs)
+    parts[#parts + 1] = M.finish_suite(result)
   else
     -- Single result
     parts[#parts + 1] = fmt(

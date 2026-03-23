@@ -55,7 +55,6 @@ local function make_result()
 end
 
 local results = make_result()
-local devnull = chrono.devnull
 
 local suite = chrono.suite("Reporters", {
   iterations = 500,
