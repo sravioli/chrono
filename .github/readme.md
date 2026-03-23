@@ -147,6 +147,7 @@ as it completes. This provides live feedback for long benchmark runs.
 - **JSON output:** Always deferred (buffered per-file) to maintain valid JSON documents
 
 **Example:** Live streaming shows results as benchmarks finish:
+
 ```
 suite_name: Benchmarks
 ↓
@@ -271,25 +272,25 @@ Suite results wrap individual results:
 
 ## CLI flags
 
-| Flag               | Description                                      | Default |
-| ------------------ | ------------------------------------------------ | ------- |
-| `--lua <interp>`   | Re-run under a different interpreter             | –       |
-| `--file <path>`    | Benchmark file to run (repeatable)               | –       |
-| `--root <dir>`     | Root directory for discovery (repeatable)        | `bench/`|
-| `--pattern <pat>`  | Lua filename pattern for discovery               | `_bench`|
-| `--format <fmt>`   | Output format: `text`, `pretty`, or `json`       | `text`  |
-| `--defer-print`    | Buffer `text`/`pretty` output per suite          | off     |
-| `--no-defer-print` | Stream `text`/`pretty` output live _(default)_   | on      |
-| `--timer <src>`    | `wall` or `cpu`                                  | `wall`  |
-| `--iterations N`   | Measurement iterations per benchmark             | 100     |
-| `--warmup N`       | Warmup iterations before measurement             | 0       |
-| `--min-time S`     | Minimum measurement seconds                      | 0       |
-| `--batch-size N`   | Calls per timed iteration (for fast functions)   | 1       |
-| `--gc-off`         | Disable garbage collection during measurement    | –       |
-| `--gc-collect`     | Force garbage collection between benchmarks      | –       |
-| `--randomize`      | Randomize benchmark execution order              | –       |
-| `--out-of-process` | Run each benchmark in a child process             | –       |
-| `--help`           | Print usage information and exit                 | –       |
+| Flag               | Description                                    | Default  |
+| ------------------ | ---------------------------------------------- | -------- |
+| `--lua <interp>`   | Re-run under a different interpreter           | –        |
+| `--file <path>`    | Benchmark file to run (repeatable)             | –        |
+| `--root <dir>`     | Root directory for discovery (repeatable)      | `bench/` |
+| `--pattern <pat>`  | Lua filename pattern for discovery             | `_bench` |
+| `--format <fmt>`   | Output format: `text`, `pretty`, or `json`     | `text`   |
+| `--defer-print`    | Buffer `text`/`pretty` output per suite        | off      |
+| `--no-defer-print` | Stream `text`/`pretty` output live _(default)_ | on       |
+| `--timer <src>`    | `wall` or `cpu`                                | `wall`   |
+| `--iterations N`   | Measurement iterations per benchmark           | 100      |
+| `--warmup N`       | Warmup iterations before measurement           | 0        |
+| `--min-time S`     | Minimum measurement seconds                    | 0        |
+| `--batch-size N`   | Calls per timed iteration (for fast functions) | 1        |
+| `--gc-off`         | Disable garbage collection during measurement  | –        |
+| `--gc-collect`     | Force garbage collection between benchmarks    | –        |
+| `--randomize`      | Randomize benchmark execution order            | –        |
+| `--out-of-process` | Run each benchmark in a child process          | –        |
+| `--help`           | Print usage information and exit               | –        |
 
 **Switching runtimes:** `chrono --lua luajit` re-executes the entire CLI
 under LuaJIT (or any other interpreter). This lets you compare Lua vs
@@ -363,13 +364,13 @@ first. After installing a compiler, build with explicit include/library paths:
 2. Either add that folder to your `PATH`, or pass it directly to `make`:
 
    ```sh
-  make clock CC="zig cc"
+   make clock CC="zig cc"
    ```
 
    If Lua headers are not auto-detected, specify them explicitly:
 
    ```sh
-  make clock CC="zig cc" LUA_INCDIR=C:/path/to/lua/include LUA_LIB=lua51
+   make clock CC="zig cc" LUA_INCDIR=C:/path/to/lua/include LUA_LIB=lua51
    ```
 
 ##### Option B — MSYS2 / MinGW-w64
@@ -384,7 +385,7 @@ first. After installing a compiler, build with explicit include/library paths:
 3. Build from the MSYS2 shell:
 
    ```sh
-  make clock LUA_INCDIR=/path/to/lua/include LUA_LIB=lua51
+   make clock LUA_INCDIR=/path/to/lua/include LUA_LIB=lua51
    ```
 
 ##### Option C — MSVC (Developer Command Prompt)
@@ -561,11 +562,13 @@ make clean
 ## Compatibility
 
 **Lua Versions:**
+
 - Lua 5.1.x through 5.4.x (code written in 5.1-compatible syntax)
 - LuaJIT 2.0.5+ (auto-detected and preferred for FFI-based timers)
 - No external Lua dependencies for the core library
 
 **Tools & CI:**
+
 - Build: GNU Make (required for native timer compilation)
 - Tests: Busted test runner
 - Linting: Luacheck (0 warnings target) and Selene v1.0.0 (0 errors target)
@@ -573,6 +576,7 @@ make clean
 - Code Coverage: Luacov with Coveralls integration
 
 **Optional:**
+
 - `chrono.clock` C module for nanosecond-resolution timing on plain Lua
 - FFI available on LuaJIT for high-resolution wall-clock and CPU timers
 
