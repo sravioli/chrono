@@ -3,6 +3,7 @@
 # Targets:
 #   make              Build everything (native C timer)
 #   make build        Build the optional C high-resolution timer
+#   make rebuild      Clean and rebuild the native timer
 #   make test         Run the test suite (busted)
 #   make verify       Quick sanity check — prints detected timer sources
 #   make clean        Remove build artifacts
@@ -83,9 +84,11 @@ OUTDIR = c/chrono
 TARGET = $(OUTDIR)/clock.$(EXT)
 
 # ---------- Targets ----------
-.PHONY: all build test verify clean
+.PHONY: all build rebuild test verify clean
 
 all: build
+
+rebuild: clean build
 
 build: $(TARGET)
 
