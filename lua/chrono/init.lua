@@ -15,7 +15,7 @@ local timer = require "chrono.timer"
 
 local M = {}
 
-M._VERSION = "0.1.0"
+M._VERSION = "0.1.1"
 M.runtime = timer.runtime
 M.runtime_version = timer.runtime_version
 M.filters = {}
@@ -61,6 +61,26 @@ function Suite:add(name, fn, opts)
   return self
 end
 
+--- Add tags to the most recently added benchmark.
+-- Accepts a string tag or a table (array) of tags.
+-- Returns the suite for chaining.
+function Suite:tag(t)
+  if #self._benchmarks == 0 then
+    error "Suite:tag called with no benchmarks present"
+  end
+  local last = self._benchmarks[#self._benchmarks]
+  last.opts = last.opts or {}
+  last.opts.tags = last.opts.tags or {}
+  if type(t) == "table" then
+    for _, v in ipairs(t) do
+      last.opts.tags[#last.opts.tags + 1] = v
+    end
+  else
+    last.opts.tags[#last.opts.tags + 1] = t
+  end
+  return self
+end
+
 --- Add a filter function to the suite.
 -- Filters are called with (name, opts) for each benchmark.  If a filter
 -- returns true, reason the benchmark is skipped.
@@ -93,6 +113,8 @@ function Suite:run(run_opts)
   local randomize = merged.randomize
   local gc_collect = merged.gc_collect
   local out_of_process = merged.out_of_process
+  local seed = merged.seed
+  merged.seed = nil
   local bench_file = merged.bench_file
   local on_benchmark_result = merged.on_benchmark_result
   merged.randomize = nil
@@ -122,7 +144,11 @@ function Suite:run(run_opts)
     end
   end
   if randomize then
-    math.randomseed(os.clock() * 1e6)
+    if seed then
+      math.randomseed(seed)
+    else
+      math.randomseed(os.clock() * 1e6)
+    end
     shuffle(order)
   end
 
@@ -148,6 +174,10 @@ function Suite:run(run_opts)
 
     local result
     if out_of_process and bench_file then
+      -- Forward suite-level seed into the subprocess options if present
+      if seed then
+        bopts.seed = seed
+      end
       local subprocess = require "chrono.subprocess"
       result = subprocess.run_single(b.name, bench_file, b.name, bopts)
     else
@@ -156,6 +186,20 @@ function Suite:run(run_opts)
 
     if not results.timer_source and result.timer_source then
       results.timer_source = result.timer_source
+    end
+
+    -- Attach metadata from bopts so reporters/subprocesses can include tags and provenance
+    if bopts and bopts.tags then
+      result.tags = bopts.tags
+    end
+    if bench_file then
+      result.bench_file = bench_file
+    end
+    if bopts and bopts.run_index then
+      result.run_index = bopts.run_index
+    end
+    if bopts and bopts.run_count then
+      result.run_count = bopts.run_count
     end
 
     results.benchmarks[#results.benchmarks + 1] = result

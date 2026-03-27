@@ -108,7 +108,6 @@ SRC    = c/clock.c
 OUTDIR = c/chrono
 TARGET = $(OUTDIR)/clock.$(EXT)
 
-
 # Step 7: Targets
 .PHONY: all build rebuild test verify clean
 

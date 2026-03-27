@@ -24,8 +24,10 @@ ignore_merge_commits = true
 # Type: `Array<String>` (optional)
 # An array of command to execute before a version bump.
 pre_bump_hooks = [
+    "lua scripts/bump-chrono-version.lua {{version}}",
     "lua scripts/bump-rockspecs.lua {{version}}",
     "git add rockspecs/",
+    "git add lua/chrono/init.lua",
 ]
 
 # Type: `Array<String>` (optional)

@@ -53,6 +53,9 @@ local function render_one(r, idx)
   end
 
   lines[#lines + 1] = tag .. r.name
+  if r.tags then
+    lines[#lines + 1] = indent .. "tags: " .. table.concat(r.tags, ", ")
+  end
   lines[#lines + 1] = indent
     .. cell("mean", ftime(r.mean))
     .. GAP

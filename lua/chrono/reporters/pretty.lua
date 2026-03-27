@@ -153,6 +153,9 @@ local function render_one(r, idx)
       .. r.name
       .. reset
   )
+  if r.tags then
+    lines[#lines + 1] = boxline(dim .. "tags: " .. table.concat(r.tags, ", ") .. reset)
+  end
   lines[#lines + 1] = " " .. hline(SEP_L, SEP_R, INNER_W + 2)
 
   -- Stats rows: label (colored) + value

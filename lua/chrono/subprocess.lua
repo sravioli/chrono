@@ -61,35 +61,75 @@ function M.run_single(name, bench_file, bench_name, opts)
   local preamble = child_preamble()
   local lua = interpreter()
 
-  -- Build opts string
-  local opt_parts = {}
-  for k, v in pairs(opts or {}) do
-    if type(v) == "number" then
-      opt_parts[#opt_parts + 1] = string.format("[%q]=%s", k, v)
-    elseif type(v) == "boolean" then
-      opt_parts[#opt_parts + 1] = string.format("[%q]=%s", k, tostring(v))
-    elseif type(v) == "string" then
-      opt_parts[#opt_parts + 1] = string.format("[%q]=%q", k, v)
+  -- Serialize opts into a Lua literal so the child can reconstruct it.
+  local function serialize(v)
+    local t = type(v)
+    if t == "number" then
+      return tostring(v)
+    elseif t == "boolean" then
+      return tostring(v)
+    elseif t == "string" then
+      return string.format("%q", v)
+    elseif t == "table" then
+      -- Detect array-like vs map-like
+      local is_array = true
+      for k, _ in pairs(v) do
+        if type(k) ~= "number" then
+          is_array = false
+          break
+        end
+      end
+      local parts = {}
+      if is_array then
+        for i = 1, #v do
+          parts[#parts + 1] = serialize(v[i])
+        end
+        return "{" .. table.concat(parts, ",") .. "}"
+      else
+        for k, val in pairs(v) do
+          parts[#parts + 1] = string.format("[%q]=%s", tostring(k), serialize(val))
+        end
+        return "{" .. table.concat(parts, ",") .. "}"
+      end
+    else
+      return "nil"
     end
   end
-  local opts_str = "{" .. table.concat(opt_parts, ",") .. "}"
+
+  local opts_str = serialize(opts or {})
 
   local script = string.format(
-    '%s local chrono=require("chrono");local json=require("chrono.reporters.json");'
-      .. "local chunk,err=loadfile(%q);if not chunk then io.write(json.format({name=%q,error=err}));os.exit(0) end;"
-      .. "local ok,suite=pcall(chunk);"
-      .. "if not ok then io.write(json.format({name=%q,error=tostring(suite)}));os.exit(0) end;"
-      .. "local found;for _,b in ipairs(suite._benchmarks) do if b.name==%q then found=b;break end end;"
-      .. "if not found then io.write(json.format({name=%q,error='benchmark not found'}));os.exit(0) end;"
-      .. 'local runner=require("chrono.runner");local r=runner.run_single(found.name,found.fn,%s);'
-      .. "io.write(json.format(r))",
+    [[
+%s
+local chrono=require("chrono");local json=require("chrono.reporters.json");
+local opts = %s;
+if opts and opts.helpers then
+  for _,h in ipairs(opts.helpers) do
+    local chunk, err = loadfile(h)
+    if not chunk then io.write(json.format({name=%q,error=err}));os.exit(0) end
+    local ok, res = pcall(chunk)
+    if not ok then io.write(json.format({name=%q,error=tostring(res)}));os.exit(0) end
+  end
+end
+local chunk,err=loadfile(%q);
+if not chunk then io.write(json.format({name=%q,error=err}));os.exit(0) end;
+local ok,suite=pcall(chunk);
+if not ok then io.write(json.format({name=%q,error=tostring(suite)}));os.exit(0) end;
+local found;
+for _,b in ipairs(suite._benchmarks) do if b.name==%q then found=b;break end end;
+if not found then io.write(json.format({name=%q,error='benchmark not found'}));os.exit(0) end;
+local runner=require("chrono.runner");local r=runner.run_single(found.name,found.fn,opts);
+io.write(json.format(r))
+]],
     preamble,
+    opts_str,
+    bench_name,
+    bench_name,
     bench_file,
     bench_name,
     bench_name,
     bench_name,
-    bench_name,
-    opts_str
+    bench_name
   )
 
   local cmd = string.format("%s -e %q 2>&1", lua, script)

@@ -16,6 +16,9 @@ local DEFAULTS = {
   pattern = "_bench",
   format = "text",
   defer_print = false,
+  repeat_count = 1,
+  seed = nil,
+  list = false,
   timer_source = nil,
   iterations = nil,
   warmup = nil,
@@ -34,35 +37,58 @@ local DEFAULTS = {
 local USAGE = [[
 chrono v]] .. chrono._VERSION .. [[
 
-Usage: chrono [options] [file ...]
+usage: chrono [options] [path ...]
+  chrono [options] --root <dir> [--root <dir> ...]
+  chrono [options] -- [path ...]
 
-Options:
-  --lua <interp>       Re-run under a different interpreter (e.g. luajit)
-  --file <path>        Benchmark file to run (may be repeated)
-  --root <dir>         Root directories for auto-discovery (may be repeated)
-  --pattern <pat>      Lua pattern for benchmark filenames  [default: _bench]
-  --format <fmt>       Output format: text, json, pretty    [default: text]
-  --defer-print        Print suite results after all benchmarks in a file finish
-  --no-defer-print     Stream terminal results as each benchmark completes
-  --timer <src>        Timer source: wall, cpu               [default: wall]
-  --iterations <n>     Measurement iterations per benchmark  [default: 100]
-  --warmup <n>         Warmup iterations per benchmark       [default: 0]
-  --min-time <sec>     Minimum measurement time (seconds)    [default: 0]
-  --batch-size <n>     Calls per timed iteration             [default: 1]
-  --gc-off             Disable GC during measurement
-  --gc-collect         Force GC between suite benchmarks
-  --randomize          Randomize benchmark execution order
-  --out-of-process     Run each benchmark in a child process
-  --help               Show this message and exit
+General options
+  --help, -h           show this message and exit
+  --version            print version and exit
+  --lua <interp>       re-run under a different interpreter
 
-Config:
-  If a .chrono file exists in the working directory it is loaded as a Lua
-  table (like busted's .busted).  CLI flags override config values.  The
-  config may define named profiles; the "default" profile is used.
+Input and discovery options
+  --file <path>        benchmark file to run (repeatable)
+  --root <dir>         root directory for auto-discovery (repeatable)
+  --pattern <pat>      Lua filename pattern for discovery (default: _bench)
+  --helper <path>      helper script to run before discovery (repeatable)
+  --list               list benchmark names without running
 
-Auto-discovery:
-  When no --file is given, chrono searches ROOT directories (default: bench/)
-  for files whose names match PATTERN (default: _bench).
+Notes
+  Bare positional arguments may be benchmark files or discovery directories.
+  Use -- to stop option parsing; all following args are treated as paths.
+
+Execution options
+  --timer <src>        timer source: wall, cpu (default: wall)
+  --iterations <n>     measurement iterations per benchmark (default: 100)
+  --warmup <n>         warmup iterations per benchmark (default: 0)
+  --min-time <sec>     minimum measurement time in seconds (default: 0)
+  --batch-size <n>     calls per timed iteration (default: 1)
+  --gc-off             disable GC during measurement
+  --gc-collect         force GC between suite benchmarks
+  --randomize          randomize benchmark execution order
+  --seed <n>           seed randomization for deterministic runs
+  --repeat <n>         repeat the entire run N times
+  --out-of-process     run each benchmark in a child process
+
+Output options
+  --format <fmt>       output format: text, json, pretty (default: text)
+  --[no-]defer-print   defer suite output, or stream benchmark-by-benchmark
+
+Selection options
+  --filter <pat>       include benchmark names matching Lua pattern
+  --filter-out <pat>   exclude benchmark names matching Lua pattern
+  --name <name>        run only the benchmark with this full name
+  --tags <a,b>         include benchmarks with any listed tag
+  --exclude-tags <a,b> exclude benchmarks with any listed tag
+
+Config
+  If a .chrono file exists in the working directory, Chrono loads it as a Lua
+  table (similar to busted's .busted). CLI flags override config values.
+  Named profiles are supported; the "default" profile is used automatically.
+
+Auto-discovery
+  If no --file is provided, Chrono searches ROOT directories (default: bench/)
+  for .lua files whose names match PATTERN (default: _bench).
 ]]
 
 ---------------------------------------------------------------------------
@@ -70,7 +96,13 @@ Auto-discovery:
 ---------------------------------------------------------------------------
 
 local function die(msg)
-  io.stderr:write("Error: " .. msg .. "\n\n" .. USAGE)
+  io.stderr:write(
+    "Error: "
+      .. msg
+      .. "\n\n"
+      .. "usage: chrono [options] [path ...]\n"
+      .. "Try 'chrono --help' for full usage.\n"
+  )
   os.exit(1)
 end
 
@@ -188,8 +220,21 @@ local function parse_args(argv)
   local i = 1
   while i <= #argv do
     local a = argv[i]
-    if a == "--help" or a == "-h" then
+    if a == "--" then
+      for j = i + 1, #argv do
+        local path = argv[j]
+        if isdir(path) then
+          opts.roots[#opts.roots + 1] = path
+        else
+          opts.files[#opts.files + 1] = path
+        end
+      end
+      break
+    elseif a == "--help" or a == "-h" then
       io.write(USAGE)
+      os.exit(0)
+    elseif a == "--version" then
+      io.write(chrono._VERSION .. "\n")
       os.exit(0)
     elseif a == "--lua" then
       i = i + 1
@@ -255,11 +300,72 @@ local function parse_args(argv)
       opts.gc_collect = true
     elseif a == "--randomize" then
       opts.randomize = true
+    elseif a == "--filter" then
+      i = i + 1
+      if not argv[i] then
+        die "--filter requires a Lua pattern"
+      end
+      opts.filter = argv[i]
+    elseif a == "--filter-out" then
+      i = i + 1
+      if not argv[i] then
+        die "--filter-out requires a Lua pattern"
+      end
+      opts.filter_out = argv[i]
+    elseif a == "--name" then
+      i = i + 1
+      if not argv[i] then
+        die "--name requires a benchmark name"
+      end
+      opts.name = argv[i]
+    elseif a == "--tags" then
+      i = i + 1
+      if not argv[i] then
+        die "--tags requires a comma-separated list"
+      end
+      opts.tags = {}
+      for tag in string.gmatch(argv[i], "[^,]+") do
+        opts.tags[#opts.tags + 1] = tag
+      end
+    elseif a == "--exclude-tags" then
+      i = i + 1
+      if not argv[i] then
+        die "--exclude-tags requires a comma-separated list"
+      end
+      opts.exclude_tags = {}
+      for tag in string.gmatch(argv[i], "[^,]+") do
+        opts.exclude_tags[#opts.exclude_tags + 1] = tag
+      end
+    elseif a == "--helper" then
+      i = i + 1
+      if not argv[i] then
+        die "--helper requires a path"
+      end
+      opts.helpers = opts.helpers or {}
+      opts.helpers[#opts.helpers + 1] = argv[i]
+    elseif a == "--seed" then
+      i = i + 1
+      opts.seed = tonumber(argv[i])
+      if not opts.seed then
+        die "--seed requires a number"
+      end
+    elseif a == "--repeat" then
+      i = i + 1
+      opts.repeat_count = tonumber(argv[i])
+      if not opts.repeat_count or opts.repeat_count < 1 then
+        die "--repeat requires a positive integer"
+      end
+    elseif a == "--list" then
+      opts.list = true
     elseif a == "--out-of-process" then
       opts.out_of_process = true
     else
-      -- Treat bare arguments as files
-      opts.files[#opts.files + 1] = a
+      -- Treat bare arguments as files or discovery roots.
+      if isdir(a) then
+        opts.roots[#opts.roots + 1] = a
+      else
+        opts.files[#opts.files + 1] = a
+      end
     end
     i = i + 1
   end
@@ -377,22 +483,56 @@ function M.main(argv)
   if cli.pattern then
     config.pattern = cli.pattern
   end
+  if cli.seed then
+    config.seed = cli.seed
+  end
+  if cli.repeat_count then
+    config.repeat_count = cli.repeat_count
+  end
 
   if config.format == "json" then
     config.defer_print = true
   end
 
-  local roots = #cli.roots > 0 and cli.roots or config.ROOT
+  local explicit_roots = #cli.roots > 0
+  local roots = explicit_roots and cli.roots or config.ROOT
   local files = cli.files
 
-  -- 3. Discover benchmark files if none given explicitly
-  if #files == 0 then
+  -- Run helper scripts (if any) before discovery
+  if cli.helpers then
+    for _, h in ipairs(cli.helpers) do
+      local chunk, err = loadfile(h)
+      if not chunk then
+        die("error loading helper: " .. tostring(err))
+      end
+      local ok, res = pcall(chunk)
+      if not ok then
+        die("error running helper: " .. tostring(res))
+      end
+    end
+  end
+
+  -- 3. Discover benchmark files from explicit roots, or from config roots when
+  --    no files were given.
+  if explicit_roots or #files == 0 then
     for _, root in ipairs(roots) do
       local discovered = find_files(root, config.pattern)
       for _, f in ipairs(discovered) do
         files[#files + 1] = f
       end
     end
+  end
+
+  do
+    local seen = {}
+    local unique = {}
+    for _, path in ipairs(files) do
+      if not seen[path] then
+        seen[path] = true
+        unique[#unique + 1] = path
+      end
+    end
+    files = unique
   end
 
   if #files == 0 then
@@ -408,6 +548,18 @@ function M.main(argv)
 
   -- Sort for deterministic order (shuffling happens inside the suite)
   table.sort(files)
+
+  -- If list mode requested, print benchmark names and exit
+  if cli.list then
+    for _, path in ipairs(files) do
+      local suite = load_suite(path)
+      io.write(path .. "\n")
+      for _, b in ipairs(suite._benchmarks) do
+        io.write("  " .. b.name .. "\n")
+      end
+    end
+    return
+  end
 
   -- 4. Build run-time options
   local run_opts = {}
@@ -438,6 +590,17 @@ function M.main(argv)
   if config.out_of_process then
     run_opts.out_of_process = true
   end
+  if config.seed then
+    run_opts.seed = config.seed
+  end
+  -- Forward helper scripts to child processes
+  if cli.helpers then
+    run_opts.helpers = cli.helpers
+  elseif config.helpers then
+    run_opts.helpers = config.helpers
+  end
+
+  local repeat_count = config.repeat_count or 1
 
   local reporter = chrono.get_reporter(config.format)
   local can_stream = not config.defer_print
@@ -446,34 +609,103 @@ function M.main(argv)
     and reporter.format_benchmark
     and reporter.finish_suite
 
-  -- 5. Load and run each benchmark file
+  -- 5. Load and run each benchmark file (possibly repeated)
   local all_results = {}
-  for index, path in ipairs(files) do
-    local suite = load_suite(path)
-    if config.out_of_process then
-      run_opts.bench_file = path
+  for rep = 1, repeat_count do
+    if repeat_count > 1 then
+      -- adjust seed per repetition for deterministic but distinct shuffles
+      if config.seed then
+        run_opts.seed = config.seed + (rep - 1)
+      end
+      run_opts.run_index = rep
+      run_opts.run_count = repeat_count
     end
-    if can_stream then
-      local header_written = false
-      run_opts.on_benchmark_result = function(result, bench_index, _, partial_results)
-        if not header_written then
-          write_chunk(reporter.start_suite(partial_results), true)
-          header_written = true
+    for index, path in ipairs(files) do
+      local suite = load_suite(path)
+      -- Apply simple name/pattern/tags filters from CLI
+      if cli.filter then
+        suite:filter(function(name)
+          if not name:match(cli.filter) then
+            return true, "filter"
+          end
+          return false
+        end)
+      end
+      if cli.filter_out then
+        suite:filter(function(name)
+          if name:match(cli.filter_out) then
+            return true, "filter-out"
+          end
+          return false
+        end)
+      end
+      if cli.name then
+        suite:filter(function(name)
+          if name ~= cli.name then
+            return true, "name mismatch"
+          end
+          return false
+        end)
+      end
+      if cli.exclude_tags then
+        local excl = {}
+        for _, t in ipairs(cli.exclude_tags) do
+          excl[t] = true
         end
-        write_chunk(reporter.format_benchmark(result, bench_index), true)
+        suite:filter(function(_, opts)
+          if not opts or not opts.tags then
+            return false
+          end
+          for _, t in ipairs(opts.tags) do
+            if excl[t] then
+              return true, "exclude-tag"
+            end
+          end
+          return false
+        end)
       end
-
-      local results = suite:run(run_opts)
-      run_opts.on_benchmark_result = nil
-
-      if not header_written then
-        write_chunk(reporter.start_suite(results), true)
+      if cli.tags then
+        local incl = {}
+        for _, t in ipairs(cli.tags) do
+          incl[t] = true
+        end
+        suite:filter(function(_, opts)
+          if not opts or not opts.tags then
+            return true, "no-tag"
+          end
+          for _, t in ipairs(opts.tags) do
+            if incl[t] then
+              return false
+            end
+          end
+          return true, "tag-missing"
+        end)
       end
-      write_chunk(reporter.finish_suite(results), index < #files)
-    else
-      run_opts.on_benchmark_result = nil
-      local results = suite:run(run_opts)
-      all_results[#all_results + 1] = results
+      if config.out_of_process then
+        run_opts.bench_file = path
+      end
+      if can_stream then
+        local header_written = false
+        run_opts.on_benchmark_result = function(result, bench_index, _, partial_results)
+          if not header_written then
+            write_chunk(reporter.start_suite(partial_results), true)
+            header_written = true
+          end
+          write_chunk(reporter.format_benchmark(result, bench_index), true)
+        end
+
+        local results = suite:run(run_opts)
+        run_opts.on_benchmark_result = nil
+
+        if not header_written then
+          write_chunk(reporter.start_suite(results), true)
+        end
+        write_chunk(reporter.finish_suite(results), index < #files)
+      else
+        run_opts.on_benchmark_result = nil
+        local results = suite:run(run_opts)
+        all_results[#all_results + 1] = results
+      end
     end
   end
 
