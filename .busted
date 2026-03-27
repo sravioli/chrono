@@ -1,8 +1,0 @@
-return {
-  default = {
-    ROOT = { "spec/" },
-    pattern = "_spec",
-    lpath = "lua/?.lua;lua/?/init.lua",
-    cpath = "./c/?.dll;./c/?.so",
-  },
-}
