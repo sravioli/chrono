@@ -275,15 +275,14 @@ local function suite_footer(benchmarks, override_errs)
     .. reset
 end
 
--- Base:format calls these as self.start_suite(result) / self.finish_suite(result, errs)
--- so they are dot-style functions: first arg is the result table, not self.
+-- Base:_do_format looks up these through self but calls them dot-style.
 function M.start_suite(result)
   return suite_header(result)
 end
 
 function M.finish_suite(result, override_errs)
   result = result or {}
-  local errs = override_errs or Base.count_errors(result.benchmarks)
+  local errs = override_errs or M:count_errors(result.benchmarks)
   return suite_footer(result.benchmarks, errs)
 end
 

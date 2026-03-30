@@ -115,7 +115,7 @@ function M:count_errors(benchmarks)
   return errs
 end
 
-function M:start_suite(result)
+function M.start_suite(result)
   return table.concat({
     "Benchmark Suite: " .. (result.suite_name or "unnamed"),
     fmt(
@@ -127,19 +127,7 @@ function M:start_suite(result)
 end
 
 function M:format_benchmark(result, idx)
-  if type(self.render_one) == "function" then
-    return self:render_one(result, idx)
-  end
-  if result.error then
-    return (
-      (idx and string.format("  [%d] ", idx) or "  ")
-      .. result.name
-      .. "  ** ERROR **\n       "
-      .. (result.error or "")
-    ),
-      true
-  end
-  return (idx and string.format("  [%d] ", idx) or "  ") .. result.name, false
+  return self:render_one(result, idx)
 end
 
 --- Default plain-text render of one benchmark result.
@@ -176,16 +164,15 @@ function M:render_one(r, idx)
 end
 
 --- Default suite footer.
-function M:finish_suite(result, override_errs)
-  local errs = override_errs or self:count_errors(result.benchmarks)
+function M.finish_suite(result, override_errs)
+  local errs = override_errs or M:count_errors(result.benchmarks)
   return fmt("%d benchmark(s) | %d error(s)", #(result.benchmarks or {}), errs)
 end
 
 --- Orchestrate full suite or single-benchmark output.
--- start_suite / finish_suite are called as dot functions so derived reporters
--- can expose them both as plain functions (for external callers) and have them
--- called correctly here without argument-shifting.
-function M:format(result)
+-- start_suite / finish_suite are dot functions: first arg is result, not self.
+-- Lookup goes through self for polymorphism, but calls are dot-style.
+function M:_do_format(result)
   local parts = {}
   local render_errs = 0
 
@@ -227,17 +214,15 @@ end
 --- Create a derived reporter inheriting all methods from this base.
 -- The derived table gets:
 --   • metatable __index pointing to the base
---   • format(result) wired to call Base.format with the derived table as self
+--   • format(result) wired to call _do_format with the derived table as self
 -- Only override what differs: render_one, start_suite, finish_suite,
 -- format_time, format_ops, format_count.
 function M:extend(t)
   t = t or {}
   setmetatable(t, { __index = self })
-  -- Wire dot-style `format(result)` so external callers don't need self.
   local derived = t
-  local base = self
   t.format = function(result)
-    return base.format(derived, result)
+    return derived:_do_format(result)
   end
   return t
 end
