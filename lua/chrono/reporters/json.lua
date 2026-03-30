@@ -6,6 +6,7 @@ local huge = math.huge
 local concat = table.concat
 local format = string.format
 local byte = string.byte
+local Base = require("chrono.reporters.base")
 
 ---------------------------------------------------------------------------
 -- Minimal JSON encoder (no external dependencies)
@@ -118,5 +119,7 @@ end
 function M.format(result)
   return encode(result, 0)
 end
+
+setmetatable(M, { __index = Base })
 
 return M

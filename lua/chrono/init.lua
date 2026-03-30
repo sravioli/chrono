@@ -256,8 +256,13 @@ end
 
 --- Format and print results to stdout.
 function M.report(results, fmt)
-  io.write(M.format(results, fmt))
-  io.write "\n"
+  local ok, out = pcall(M.format, results, fmt)
+  if not ok then
+    io.write("Reporter error: " .. tostring(out) .. "\n")
+  else
+    io.write(out)
+    io.write "\n"
+  end
 end
 
 ---------------------------------------------------------------------------

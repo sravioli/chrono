@@ -686,21 +686,60 @@ function M.main(argv)
       end
       if can_stream then
         local header_written = false
+        local render_errs = 0
+        local reporter_excs = 0
+
         run_opts.on_benchmark_result = function(result, bench_index, _, partial_results)
           if not header_written then
-            write_chunk(reporter.start_suite(partial_results), true)
+            local ok, s = pcall(reporter.start_suite, partial_results)
+            if ok then
+              write_chunk(s, true)
+            else
+              write_chunk("Reporter start_suite error: " .. tostring(s), true)
+              reporter_excs = reporter_excs + 1
+            end
             header_written = true
           end
-          write_chunk(reporter.format_benchmark(result, bench_index), true)
+
+          local ok, s, is_err = pcall(reporter.format_benchmark, result, bench_index)
+          if not ok then
+            write_chunk("Reporter error: " .. tostring(s), true)
+            reporter_excs = reporter_excs + 1
+          else
+            write_chunk(s, true)
+            if is_err then
+              render_errs = render_errs + 1
+            end
+          end
         end
 
         local results = suite:run(run_opts)
         run_opts.on_benchmark_result = nil
 
         if not header_written then
-          write_chunk(reporter.start_suite(results), true)
+          local ok, s = pcall(reporter.start_suite, results)
+          if ok then
+            write_chunk(s, true)
+          else
+            write_chunk("Reporter start_suite error: " .. tostring(s), true)
+            reporter_excs = reporter_excs + 1
+          end
         end
-        write_chunk(reporter.finish_suite(results), index < #files)
+
+        local data_errs = 0
+        if reporter and reporter.count_errors then
+          local ok, d = pcall(reporter.count_errors, reporter, results.benchmarks)
+          if ok and type(d) == "number" then
+            data_errs = d
+          end
+        end
+        local total_errs = (data_errs or 0) + render_errs + reporter_excs
+        local ok, s = pcall(reporter.finish_suite, results, total_errs)
+        if ok then
+          write_chunk(s, index < #files)
+        else
+          write_chunk("Reporter finish_suite error: " .. tostring(s), true)
+        end
       else
         run_opts.on_benchmark_result = nil
         local results = suite:run(run_opts)
