@@ -6,7 +6,7 @@ local huge = math.huge
 local concat = table.concat
 local format = string.format
 local byte = string.byte
-local Base = require("chrono.reporters.base")
+local Base = require "chrono.reporters.base"
 
 ---------------------------------------------------------------------------
 -- Minimal JSON encoder (no external dependencies)
@@ -103,10 +103,7 @@ function encode(val, level)
       end
       local items = {}
       for _, k in ipairs(keys) do
-        items[#items + 1] = inner
-          .. encode_string(tostring(k))
-          .. ": "
-          .. encode(val[k], level + 1)
+        items[#items + 1] = inner .. encode_string(tostring(k)) .. ": " .. encode(val[k], level + 1)
       end
       return "{\n" .. concat(items, ",\n") .. "\n" .. outer .. "}"
     end

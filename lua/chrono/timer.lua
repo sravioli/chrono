@@ -59,8 +59,7 @@ if not wall_fn and M.is_luajit then
         local exit_t = ffi.new "FILETIME[1]"
         local kernel = ffi.new "FILETIME[1]"
         local user = ffi.new "FILETIME[1]"
-        local probe_ok =
-          pcall(ffi.C.GetProcessTimes, hProcess, creation, exit_t, kernel, user)
+        local probe_ok = pcall(ffi.C.GetProcessTimes, hProcess, creation, exit_t, kernel, user)
         if probe_ok then
           cpu_fn = function()
             ffi.C.GetProcessTimes(hProcess, creation, exit_t, kernel, user)

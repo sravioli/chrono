@@ -14,19 +14,33 @@ function M:format_time(s)
   if not p.value then
     return fmt("%8s", p.special or "N/A") .. " "
   end
-  if p.unit == "s"  then return fmt("%8.3f s ", p.value) end
-  if p.unit == "ms" then return fmt("%8.3f ms", p.value) end
-  if p.unit == "us" then return fmt("%8.3f us", p.value) end
+  if p.unit == "s" then
+    return fmt("%8.3f s ", p.value)
+  end
+  if p.unit == "ms" then
+    return fmt("%8.3f ms", p.value)
+  end
+  if p.unit == "us" then
+    return fmt("%8.3f us", p.value)
+  end
   return fmt("%8.3f ns", p.value)
 end
 
 --- Format an ops/sec value as a right-aligned string.
 function M:format_ops(ops)
   local p = self:ops_parts(ops)
-  if not p.value then return fmt("%11s", p.special or "N/A") end
-  if p.suffix == "B" then return fmt("%8.3f  B", p.value) end
-  if p.suffix == "M" then return fmt("%8.3f  M", p.value) end
-  if p.suffix == "K" then return fmt("%8.3f  K", p.value) end
+  if not p.value then
+    return fmt("%11s", p.special or "N/A")
+  end
+  if p.suffix == "B" then
+    return fmt("%8.3f  B", p.value)
+  end
+  if p.suffix == "M" then
+    return fmt("%8.3f  M", p.value)
+  end
+  if p.suffix == "K" then
+    return fmt("%8.3f  K", p.value)
+  end
   return fmt("%8.3f   ", p.value)
 end
 
@@ -41,7 +55,7 @@ function M:cell(label, value)
 end
 
 M.LABEL_W = 7
-M.GAP     = "        "
+M.GAP = "        "
 
 function M:time_parts(s)
   if s ~= s then
@@ -117,7 +131,13 @@ function M:format_benchmark(result, idx)
     return self:render_one(result, idx)
   end
   if result.error then
-    return ((idx and string.format("  [%d] ", idx) or "  ") .. result.name .. "  ** ERROR **\n       " .. (result.error or "")), true
+    return (
+      (idx and string.format("  [%d] ", idx) or "  ")
+      .. result.name
+      .. "  ** ERROR **\n       "
+      .. (result.error or "")
+    ),
+      true
   end
   return (idx and string.format("  [%d] ", idx) or "  ") .. result.name, false
 end
@@ -127,7 +147,7 @@ end
 -- for styled output without replacing the whole layout).
 function M:render_one(r, idx)
   local lines = {}
-  local tag    = idx and fmt("  [%d] ", idx) or "  "
+  local tag = idx and fmt("  [%d] ", idx) or "  "
   local indent = "       "
 
   if r.error then
@@ -158,11 +178,7 @@ end
 --- Default suite footer.
 function M:finish_suite(result, override_errs)
   local errs = override_errs or self:count_errors(result.benchmarks)
-  return fmt(
-    "%d benchmark(s) | %d error(s)",
-    #(result.benchmarks or {}),
-    errs
-  )
+  return fmt("%d benchmark(s) | %d error(s)", #(result.benchmarks or {}), errs)
 end
 
 --- Orchestrate full suite or single-benchmark output.
@@ -170,7 +186,7 @@ end
 -- can expose them both as plain functions (for external callers) and have them
 -- called correctly here without argument-shifting.
 function M:format(result)
-  local parts       = {}
+  local parts = {}
   local render_errs = 0
 
   if result.benchmarks then
@@ -184,7 +200,9 @@ function M:format(result)
         parts[#parts + 1] = "(reporter error: " .. tostring(s) .. ")"
       else
         parts[#parts + 1] = s
-        if is_err then render_errs = render_errs + 1 end
+        if is_err then
+          render_errs = render_errs + 1
+        end
       end
       parts[#parts + 1] = ""
     end
@@ -217,8 +235,10 @@ function M:extend(t)
   setmetatable(t, { __index = self })
   -- Wire dot-style `format(result)` so external callers don't need self.
   local derived = t
-  local base    = self
-  t.format = function(result) return base.format(derived, result) end
+  local base = self
+  t.format = function(result)
+    return base.format(derived, result)
+  end
   return t
 end
 

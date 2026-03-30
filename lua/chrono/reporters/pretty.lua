@@ -1,7 +1,7 @@
 --- chrono.reporters.pretty: ANSI-colored UTF-8 terminal formatter.
 
-local Base = require("chrono.reporters.base")
-local M    = Base:extend()
+local Base = require "chrono.reporters.base"
+local M = Base:extend()
 
 local fmt = string.format
 
@@ -32,13 +32,17 @@ local white = sgr(37)
 
 function M:raw_time(s)
   local p = self:time_parts(s)
-  if not p.value then return (p.special or "N/A"), "" end
+  if not p.value then
+    return (p.special or "N/A"), ""
+  end
   return fmt("%.3f", p.value), (p.unit == "us" and "µs" or p.unit)
 end
 
 function M:raw_ops(ops)
   local p = self:ops_parts(ops)
-  if not p.value then return (p.special or "N/A"), "" end
+  if not p.value then
+    return (p.special or "N/A"), ""
+  end
   return fmt("%.3f", p.value), p.suffix
 end
 
@@ -121,7 +125,7 @@ local function render_one(self, r, idx)
       .. r.name
       .. reset
     local err_line = red .. r.error .. reset
-    local inner_w = max_vislen({ title, err_line })
+    local inner_w = max_vislen { title, err_line }
 
     lines[#lines + 1] = " " .. hline(TOP_L, TOP_R, inner_w + 2)
     lines[#lines + 1] = boxline(title, inner_w)
@@ -177,8 +181,8 @@ local function render_one(self, r, idx)
     local parts = {}
     for col_i = 1, ncols do
       local g = grid[row_i][col_i]
-      local lbl  = cyan .. fmt("%" .. lw[col_i] .. "s", g[1]) .. reset
-      local num  = bold .. white .. fmt("%" .. nw[col_i] .. "s", g[2]) .. reset
+      local lbl = cyan .. fmt("%" .. lw[col_i] .. "s", g[1]) .. reset
+      local num = bold .. white .. fmt("%" .. nw[col_i] .. "s", g[2]) .. reset
       local unit = ""
       if uw[col_i] > 0 then
         unit = " " .. dim .. pad(g[3], uw[col_i]) .. reset
@@ -235,9 +239,13 @@ local function suite_header(result)
   result = result or {}
   local parts = {
     bold .. magenta .. "  ◆ " .. reset .. bold .. (result.suite_name or "unnamed") .. reset,
-    blue  .. fmt("    runtime %s  ", result.runtime_version or "unknown") .. reset
+    blue
+      .. fmt("    runtime %s  ", result.runtime_version or "unknown")
+      .. reset
       .. "│"
-      .. blue .. fmt("  timer %s",   result.timer_source    or "N/A")     .. reset,
+      .. blue
+      .. fmt("  timer %s", result.timer_source or "N/A")
+      .. reset,
   }
   return table.concat(parts, "\n")
 end
@@ -247,12 +255,24 @@ local function suite_footer(benchmarks, override_errs)
   local errs = override_errs or 0
   if errs > 0 then
     return "  "
-      .. green .. fmt("%d", #benchmarks - errs) .. " passed" .. reset
+      .. green
+      .. fmt("%d", #benchmarks - errs)
+      .. " passed"
+      .. reset
       .. "  "
-      .. red   .. fmt("%d", errs) .. " failed" .. reset
+      .. red
+      .. fmt("%d", errs)
+      .. " failed"
+      .. reset
   end
-  return "  " .. green .. fmt("%d benchmark(s)", #benchmarks) .. reset
-    .. " " .. green .. "all ok" .. reset
+  return "  "
+    .. green
+    .. fmt("%d benchmark(s)", #benchmarks)
+    .. reset
+    .. " "
+    .. green
+    .. "all ok"
+    .. reset
 end
 
 -- Base:format calls these as self.start_suite(result) / self.finish_suite(result, errs)
@@ -271,6 +291,8 @@ end
 -- Dot-style public API (for external callers / tests without self)
 ---------------------------------------------------------------------------
 
-function M.format_benchmark(r, idx) return M:render_one(r, idx) end
+function M.format_benchmark(r, idx)
+  return M:render_one(r, idx)
+end
 
 return M

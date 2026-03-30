@@ -537,13 +537,7 @@ function M.main(argv)
 
   if #files == 0 then
     local dirs = table.concat(roots, ", ")
-    die(
-      "no benchmark files found. Searched: "
-        .. dirs
-        .. " (pattern: "
-        .. config.pattern
-        .. ")"
-    )
+    die("no benchmark files found. Searched: " .. dirs .. " (pattern: " .. config.pattern .. ")")
   end
 
   -- Sort for deterministic order (shuffling happens inside the suite)
