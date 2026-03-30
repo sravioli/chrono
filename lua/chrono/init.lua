@@ -6,6 +6,7 @@
 --   suite:add("case A", function() ... end)
 --   chrono.report(suite:run())
 
+local csv_reporter = require "chrono.reporters.csv"
 local devnull = require "chrono.devnull"
 local json_reporter = require "chrono.reporters.json"
 local pretty_reporter = require "chrono.reporters.pretty"
@@ -234,7 +235,8 @@ function M.run(name, fn, opts)
   return r
 end
 
-local reporters = { text = text_reporter, json = json_reporter, pretty = pretty_reporter }
+local reporters =
+  { text = text_reporter, json = json_reporter, pretty = pretty_reporter, csv = csv_reporter }
 
 function M.get_reporter(fmt)
   fmt = fmt or "text"

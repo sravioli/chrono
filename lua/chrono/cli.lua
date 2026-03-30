@@ -71,7 +71,7 @@ Execution options
   --out-of-process     run each benchmark in a child process
 
 Output options
-  --format <fmt>       output format: text, json, pretty (default: text)
+  --format <fmt>       output format: text, json, pretty, csv (default: text)
   --[no-]defer-print   defer suite output, or stream benchmark-by-benchmark
 
 Selection options
@@ -490,7 +490,7 @@ function M.main(argv)
     config.repeat_count = cli.repeat_count
   end
 
-  if config.format == "json" then
+  if config.format == "json" or config.format == "csv" then
     config.defer_print = true
   end
 
