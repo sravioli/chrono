@@ -46,7 +46,7 @@ function M:raw_ops(ops)
   return fmt("%.3f", p.value), p.suffix
 end
 
-function M:raw_count(n)
+function M:raw_count(n) -- luacheck: no unused
   return tostring(n), ""
 end
 

@@ -45,7 +45,7 @@ function M:format_ops(ops)
 end
 
 --- Format a raw count.
-function M:format_count(n)
+function M:format_count(n) -- luacheck: no unused
   return fmt("%11d", n)
 end
 
@@ -57,7 +57,7 @@ end
 M.LABEL_W = 7
 M.GAP = "        "
 
-function M:time_parts(s)
+function M:time_parts(s) -- luacheck: no unused
   if s ~= s then
     return { value = nil, unit = nil, special = "NaN" }
   end
@@ -75,7 +75,7 @@ function M:time_parts(s)
   end
 end
 
-function M:ops_parts(ops)
+function M:ops_parts(ops) -- luacheck: no unused
   if ops ~= ops then
     return { value = nil, suffix = nil, special = "NaN" }
   end
@@ -105,7 +105,7 @@ M.STAT_ROWS = {
 }
 M.TOTAL_FIELD = { "total", "total_time", "time" }
 
-function M:count_errors(benchmarks)
+function M:count_errors(benchmarks) -- luacheck: no unused
   local errs = 0
   for _, b in ipairs(benchmarks or {}) do
     if b.error then
@@ -205,7 +205,7 @@ function M:_do_format(result)
     else
       parts[#parts + 1] = s
     end
-    _ = is_err -- unused for single results
+    local _ = is_err -- unused for single results
   end
 
   return table.concat(parts, "\n")

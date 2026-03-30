@@ -187,6 +187,7 @@ function M._parse_child_output(output, name)
     end
   else
     -- Lua 5.2+
+    -- selene: allow(incorrect_standard_library_use)
     fn, err = load(lua_src, "=child_output", "t", {})
   end
 

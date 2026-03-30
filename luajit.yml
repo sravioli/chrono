@@ -103,6 +103,14 @@ globals:
       - type: "..."
         required: false
 
+  # jit.attach: install/detach profiling/tracing callbacks
+  # https://luajit.org/ext_profiler.html
+  jit.attach:
+    args:
+      - type: function
+      - type: string
+        required: false
+
   # jit.util: lots of introspection helpers; allow fields to be added
   jit.util:
     property: new-fields
@@ -192,6 +200,40 @@ globals:
   table.clear:
     args:
       - type: table
+
+  # --- LuaJIT package library extensions ------------------------------------
+  # package.searchpath: backported from Lua 5.2
+  package.searchpath:
+    args:
+      - type: string # name
+      - type: string # path
+      - type: string # sep
+        required: false
+      - type: string # rep
+        required: false
+
+  # package.config is a string; declare :sub() so method calls aren't flagged.
+  package.config.sub:
+    method: true
+    args:
+      - type: number  # i
+      - type: number  # j
+        required: false
+
+  # --- I/O handles: declare :write()/:read() so method calls aren't flagged --
+  io.stderr.write:
+    method: true
+    args:
+      - type: "..."
+  io.stdout.write:
+    method: true
+    args:
+      - type: "..."
+  io.stdin.read:
+    method: true
+    args:
+      - type: "..."
+        required: false
 
   # --- LuaJIT standard library behavioral differences -----------------------
   # xpcall passes trailing args to the protected function.
