@@ -216,8 +216,8 @@ globals:
   package.config.sub:
     method: true
     args:
-      - type: number  # i
-      - type: number  # j
+      - type: number # i
+      - type: number # j
         required: false
 
   # --- I/O handles: declare :write()/:read() so method calls aren't flagged --
